@@ -29,7 +29,11 @@ import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as CliState from "../cloud/CliState.ts";
 import * as CliTokenManager from "../cloud/CliTokenManager.ts";
-import { CLOUD_LINKED_USER_ID, RELAY_URL_SECRET } from "../cloud/config.ts";
+import {
+  CLOUD_LINKED_USER_ID,
+  PUBLISH_AGENT_ACTIVITY_SECRET,
+  RELAY_URL_SECRET,
+} from "../cloud/config.ts";
 import { relayUrlConfig } from "../cloud/publicConfig.ts";
 import { headlessRelayClientTracingLayer } from "../cloud/relayTracing.ts";
 import * as ServerConfig from "../config.ts";
@@ -46,12 +50,21 @@ function bytesToString(value: Uint8Array): string {
   return new TextDecoder().decode(value);
 }
 
+function stringToBytes(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
+}
+
+export function isPublishAgentActivityEnabledValue(value: string | null): boolean {
+  return value === "true";
+}
+
 interface CloudCliStatus {
   readonly desired: boolean;
   readonly authenticated: boolean;
   readonly linked: boolean;
   readonly cloudUserId: string | null;
   readonly relayUrl: string | null;
+  readonly publishAgentActivity: boolean;
   readonly relayClient: RelayClient.RelayClientStatus;
 }
 
@@ -104,6 +117,7 @@ function formatCloudStatus(status: CloudCliStatus, options?: { readonly json?: b
     `  Authorization: ${status.authenticated ? "stored credential" : "missing"}`,
     `  Environment link: ${provisioned}`,
     `  Relay: ${status.relayUrl ?? "not provisioned"}`,
+    `  Publish agent activity: ${status.publishAgentActivity ? "enabled" : "disabled"}`,
     ...formatRelayClientStatus(status.relayClient),
     ...(nextStep ? ["", `Next: ${nextStep}`] : []),
   ].join("\n");
@@ -411,22 +425,27 @@ const connectStatusCommand = Command.make("status", {
         const secrets = yield* ServerSecretStore.ServerSecretStore;
         const relayClient = yield* RelayClient.RelayClient;
         const tokens = yield* CliTokenManager.CloudCliTokenManager;
-        const [desired, authenticated, cloudUserId, relayUrl, executable] = yield* Effect.all(
-          [
-            CliState.readCliDesiredCloudLink,
-            tokens.hasCredential,
-            secrets.get(CLOUD_LINKED_USER_ID),
-            secrets.get(RELAY_URL_SECRET),
-            relayClient.resolve,
-          ],
-          { concurrency: "unbounded" },
-        );
+        const [desired, authenticated, cloudUserId, relayUrl, publishAgentActivity, executable] =
+          yield* Effect.all(
+            [
+              CliState.readCliDesiredCloudLink,
+              tokens.hasCredential,
+              secrets.get(CLOUD_LINKED_USER_ID),
+              secrets.get(RELAY_URL_SECRET),
+              secrets.get(PUBLISH_AGENT_ACTIVITY_SECRET),
+              relayClient.resolve,
+            ],
+            { concurrency: "unbounded" },
+          );
         const status: CloudCliStatus = {
           desired,
           authenticated,
           linked: Option.isSome(cloudUserId),
           cloudUserId: Option.isSome(cloudUserId) ? bytesToString(cloudUserId.value) : null,
           relayUrl: Option.isSome(relayUrl) ? bytesToString(relayUrl.value) : null,
+          publishAgentActivity: isPublishAgentActivityEnabledValue(
+            Option.isSome(publishAgentActivity) ? bytesToString(publishAgentActivity.value) : null,
+          ),
           relayClient: executable,
         };
         yield* Console.log(formatCloudStatus(status, { json: flags.json }));
@@ -434,6 +453,40 @@ const connectStatusCommand = Command.make("status", {
       {
         quietLogs: flags.json,
       },
+    ),
+  ),
+);
+
+const connectPublishCommand = Command.make("publish", {
+  ...projectLocationFlags,
+  disable: Flag.boolean("disable").pipe(
+    Flag.withDescription("Stop publishing agent activity to your mobile clients."),
+    Flag.withDefault(false),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Toggle publishing agent activity (push notifications and Live Activities) to your mobile clients.",
+  ),
+  Command.withHandler((flags) =>
+    runCloudCommand(
+      flags,
+      Effect.gen(function* () {
+        const secrets = yield* ServerSecretStore.ServerSecretStore;
+        const enabled = !flags.disable;
+        yield* secrets.set(
+          PUBLISH_AGENT_ACTIVITY_SECRET,
+          stringToBytes(enabled ? "true" : "false"),
+        );
+        const linked = Option.isSome(yield* secrets.get(CLOUD_LINKED_USER_ID));
+        yield* Console.log(
+          enabled ? "Publishing agent activity enabled." : "Publishing agent activity disabled.",
+        );
+        if (enabled && !linked) {
+          yield* Console.log(
+            "Note: this environment is not linked yet. Run `t3 connect link` so the relay can deliver updates.",
+          );
+        }
+      }),
     ),
   ),
 );
@@ -461,6 +514,7 @@ export const connectCommand = Command.make("connect").pipe(
   Command.withSubcommands([
     connectLoginCommand,
     connectLinkCommand,
+    connectPublishCommand,
     connectStatusCommand,
     connectUnlinkCommand,
     connectLogoutCommand,
