@@ -68,7 +68,7 @@ import {
   RELAY_URL_SECRET,
 } from "./config.ts";
 import { relayUrlConfig } from "./publicConfig.ts";
-import { setCliDesiredCloudLink } from "./CliState.ts";
+import { readCliDesiredLinkMode, setCliDesiredCloudLink } from "./CliState.ts";
 import * as CliTokenManager from "./CliTokenManager.ts";
 import { getOrCreateEnvironmentKeyPairFromSecretStore } from "./environmentKeys.ts";
 import { traceRelayRequest } from "./traceRelayRequest.ts";
@@ -299,8 +299,23 @@ function isAllowedEndpointOrigin(input: {
   return input.origin.localHttpPort === endpointRequestPort(url);
 }
 
-function providerKindMatchesRequestedLinkScopes(request: RelayLinkProofRequest): boolean {
-  return request.endpoint.providerKind === "cloudflare_tunnel";
+// A managed (Cloudflare tunnel) endpoint is provisioned by the relay and must
+// point at a loopback origin. A manual endpoint is reached out of band (e.g.
+// Tailscale) or not advertised at all for publish-only links, so it is not
+// tied to the managed-tunnel scope.
+export function isSupportedLinkProviderKind(request: RelayLinkProofRequest): boolean {
+  return (
+    request.endpoint.providerKind === "cloudflare_tunnel" ||
+    request.endpoint.providerKind === "manual"
+  );
+}
+
+export function linkProofScopes(
+  request: RelayLinkProofRequest,
+): RelayEnvironmentLinkProofPayload["scopes"] {
+  return request.endpoint.providerKind === "cloudflare_tunnel"
+    ? ["agent_activity_notifications", "managed_tunnels"]
+    : ["agent_activity_notifications"];
 }
 
 function hasExactScope(input: {
@@ -352,7 +367,7 @@ const makeCloudLinkProof = Effect.fn("environment.cloud.makeLinkProof")(function
 ) {
   const keyPair = yield* getOrCreateEnvironmentKeyPairFromSecretStore(dependencies.secrets);
   if (
-    !providerKindMatchesRequestedLinkScopes(request) ||
+    !isSupportedLinkProviderKind(request) ||
     !isAllowedEndpointOrigin({
       origin: request.origin,
       requestUrl,
@@ -379,7 +394,7 @@ const makeCloudLinkProof = Effect.fn("environment.cloud.makeLinkProof")(function
     environmentPublicKey: normalizePemForSignedPayload(keyPair.publicKey),
     endpoint: request.endpoint,
     origin: request.origin,
-    scopes: ["agent_activity_notifications", "managed_tunnels"],
+    scopes: linkProofScopes(request),
   } satisfies RelayEnvironmentLinkProofPayload;
   return yield* signRelayJwt({
     privateKey: keyPair.privateKey,
@@ -537,6 +552,8 @@ const reconcileDesiredCloudLinkWith = Effect.fn("environment.cloud.reconcileDesi
         }),
       ),
     );
+    const mode = yield* readCliDesiredLinkMode;
+    const managedTunnelsEnabled = mode !== "publish_only";
     const relayUrl = yield* requireRelayUrl;
     const challenge = yield* relayClientRequest(dependencies, {
       url: `${relayUrl}/v1/client/environment-link-challenges`,
@@ -544,7 +561,7 @@ const reconcileDesiredCloudLinkWith = Effect.fn("environment.cloud.reconcileDesi
       payload: {
         notificationsEnabled: true,
         liveActivitiesEnabled: true,
-        managedTunnelsEnabled: true,
+        managedTunnelsEnabled,
       },
       schema: RelayEnvironmentLinkChallengeResponse,
     });
@@ -556,7 +573,7 @@ const reconcileDesiredCloudLinkWith = Effect.fn("environment.cloud.reconcileDesi
         endpoint: {
           httpBaseUrl: localOrigin,
           wsBaseUrl: localWsOrigin,
-          providerKind: "cloudflare_tunnel",
+          providerKind: managedTunnelsEnabled ? "cloudflare_tunnel" : "manual",
         },
         origin: {
           localHttpHost: localUrl.hostname,
@@ -572,11 +589,11 @@ const reconcileDesiredCloudLinkWith = Effect.fn("environment.cloud.reconcileDesi
         proof,
         notificationsEnabled: true,
         liveActivitiesEnabled: true,
-        managedTunnelsEnabled: true,
+        managedTunnelsEnabled,
       },
       schema: RelayEnvironmentLinkResponse,
     });
-    yield* setCliDesiredCloudLink(true);
+    yield* setCliDesiredCloudLink(true, mode);
     return yield* applyCloudRelayConfig(dependencies, {
       relayUrl,
       relayIssuer: link.relayIssuer,
