@@ -201,32 +201,25 @@ describe("Devices", () => {
                 Effect.succeed([{ deviceId: "device-1", activityPushToken: "activity-token" }]),
             };
           }
-          return {
-            where: () => ({
-              orderBy: () => ({
-                limit: () =>
-                  Effect.succeed([
-                    {
-                      deviceId: "device-1",
-                      createdAt: "2026-06-05T01:02:59.566Z",
-                      kind: "live_activity_end",
-                      apnsStatus: 400,
-                      apnsReason: "DeviceTokenNotForTopic",
-                      transportError: null,
-                    },
-                    {
-                      deviceId: "device-1",
-                      createdAt: "2026-06-01T00:00:00.000Z",
-                      kind: "live_activity_update",
-                      apnsStatus: 200,
-                      apnsReason: null,
-                      transportError: null,
-                    },
-                  ]),
-              }),
-            }),
-          };
+          throw new Error(`Unexpected select from table`);
         },
+      }),
+      selectDistinctOn: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () =>
+              Effect.succeed([
+                {
+                  deviceId: "device-1",
+                  createdAt: "2026-06-05T01:02:59.566Z",
+                  kind: "live_activity_end",
+                  apnsStatus: 400,
+                  apnsReason: "DeviceTokenNotForTopic",
+                  transportError: null,
+                },
+              ]),
+          }),
+        }),
       }),
     } as unknown as RelayDb.RelayDb["Service"];
 
@@ -337,10 +330,12 @@ describe("Devices", () => {
     const fakeDb = {
       select: () => ({
         from: () => ({
-          where: () =>
-            Object.assign(failing, {
-              orderBy: () => ({ limit: () => failing }),
-            }),
+          where: () => failing,
+        }),
+      }),
+      selectDistinctOn: () => ({
+        from: () => ({
+          where: () => ({ orderBy: () => failing }),
         }),
       }),
     } as unknown as RelayDb.RelayDb["Service"];

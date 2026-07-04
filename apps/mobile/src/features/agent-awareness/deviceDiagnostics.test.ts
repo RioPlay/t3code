@@ -69,6 +69,28 @@ describe("formatDeviceDiagnosticsRows", () => {
     ]);
   });
 
+  it("treats a non-2xx delivery status without a reason as a failure", () => {
+    const rows = formatDeviceDiagnosticsRows(
+      makeDevice({
+        bundleId: "com.t3tools.t3code.preview",
+        apsEnvironment: "production",
+        hasPushToken: true,
+        hasPushToStartToken: true,
+        hasLiveActivityToken: true,
+        lastDeliveryAt: "2026-06-05T01:02:59.566Z",
+        lastDeliveryKind: "live_activity_end",
+        lastDeliveryStatus: 400,
+        lastDeliveryError: null,
+      }),
+    );
+
+    expect(rows[4]).toEqual({
+      label: "Last Delivery",
+      value: "Delivery failed (400)",
+      tone: "warn",
+    });
+  });
+
   it("reports healthy registrations with a successful delivery", () => {
     const rows = formatDeviceDiagnosticsRows(
       makeDevice({

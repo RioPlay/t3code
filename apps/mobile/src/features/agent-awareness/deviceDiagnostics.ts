@@ -73,14 +73,21 @@ export function formatDeviceDiagnosticsRows(
     });
   }
 
+  // APNs can fail with a non-2xx status without a reason body, so a null
+  // error alone does not mean the delivery succeeded.
+  const deliveryFailed =
+    diagnostics.lastDeliveryError !== null ||
+    (diagnostics.lastDeliveryStatus !== null &&
+      (diagnostics.lastDeliveryStatus < 200 || diagnostics.lastDeliveryStatus >= 300));
+
   if (diagnostics.lastDeliveryAt === null) {
     rows.push({ label: "Last Delivery", value: "None yet", tone: "muted" });
-  } else if (diagnostics.lastDeliveryError !== null) {
+  } else if (deliveryFailed) {
     const status =
       diagnostics.lastDeliveryStatus === null ? "" : ` (${diagnostics.lastDeliveryStatus})`;
     rows.push({
       label: "Last Delivery",
-      value: `${diagnostics.lastDeliveryError}${status}`,
+      value: `${diagnostics.lastDeliveryError ?? "Delivery failed"}${status}`,
       tone: "warn",
     });
   } else {
