@@ -181,7 +181,9 @@ function statusForPhase(phase: RelayAgentActivityState["phase"]): string {
     case "failed":
       return "Failed";
     case "starting":
-      return "Starting";
+      // Matches the web sidebar's pill wording (Sidebar.logic.ts) so the same
+      // thread reads the same across surfaces.
+      return "Connecting";
     case "running":
       return "Working";
     case "stale":

@@ -61,6 +61,13 @@ export class AgentAwarenessOperationError extends Schema.TaggedErrorClass<AgentA
 
 const environmentConnections = new Map<EnvironmentId, SavedRemoteConnection>();
 const activityPushTokenListeners = new WeakSet<LiveActivity<AgentActivityProps>>();
+// Activity tokens the relay has already accepted this session. The payload is
+// just {deviceId, activityPushToken}, so re-registering an accepted token is a
+// pure no-op relay round-trip — and the refresh runs on sign-in, every app
+// foreground, and every environment-connection update, which spammed identical
+// registrations. Cleared on sign-out/identity change alongside the device
+// registration state.
+const registeredActivityPushTokens = new Set<string>();
 let pushToStartSubscription: { remove: () => void } | null = null;
 let pushTokenSubscription: { remove: () => void } | null = null;
 let appStateSubscription: { remove: () => void } | null = null;
@@ -154,6 +161,7 @@ export function setAgentAwarenessRelayTokenProvider(
     deviceRegistrationGeneration++;
     activeDeviceRegistration = null;
     pendingDeviceRegistration = null;
+    registeredActivityPushTokens.clear();
   }
   relayTokenProvider = provider;
   relayTokenProviderIdentity = provider ? (identity ?? null) : null;
@@ -791,6 +799,9 @@ function registerLiveActivityPushTokenValue(input: {
   readonly activityPushToken: string;
 }): Effect.Effect<boolean, unknown, ManagedRelay.ManagedRelayClient> {
   return Effect.gen(function* () {
+    if (registeredActivityPushTokens.has(input.activityPushToken)) {
+      return true;
+    }
     const deviceId = yield* Effect.tryPromise({
       try: () => loadOrCreateAgentAwarenessDeviceId(),
       catch: (cause) =>
@@ -804,6 +815,7 @@ function registerLiveActivityPushTokenValue(input: {
       activityPushToken: input.activityPushToken,
     });
     if (registered) {
+      registeredActivityPushTokens.add(input.activityPushToken);
       logRegistrationDebug("live activity push token registered", {
         tokenSuffix: input.activityPushToken.slice(-8),
       });

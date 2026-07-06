@@ -174,6 +174,9 @@ const config: ExpoConfig = {
         ],
       },
     ],
+    // Must run after expo-widgets so the widget target exists when it wires in
+    // the branded logo asset catalog.
+    "./plugins/withWidgetLogoAsset.cjs",
     "./plugins/withIosSceneLifecycle.cjs",
     "./plugins/withAndroidCleartextTraffic.cjs",
   ],

@@ -2,16 +2,21 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@expo/ui/swift-ui", () => ({
   HStack: "HStack",
+  Image: "Image",
   Spacer: "Spacer",
   Text: "Text",
   VStack: "VStack",
+  ZStack: "ZStack",
 }));
 
 vi.mock("@expo/ui/swift-ui/modifiers", () => ({
   font: (value: unknown) => value,
   foregroundStyle: (value: unknown) => value,
+  frame: (value: unknown) => value,
+  layoutPriority: (value: unknown) => value,
   lineLimit: (value: unknown) => value,
   padding: (value: unknown) => value,
+  resizable: (value: unknown) => value,
   widgetURL: (value: unknown) => ({ widgetURL: value }),
 }));
 
@@ -53,27 +58,13 @@ const environment = {
   isLuminanceReduced: false,
 } as const;
 
-function expectedLocalTime(iso: string): string {
-  const date = new Date(iso);
-  const minutes = date.getMinutes();
-  return `${date.getHours() % 12 || 12}:${minutes < 10 ? "0" : ""}${minutes}`;
-}
+const lightEnvironment = {
+  colorScheme: "light",
+  isLuminanceReduced: false,
+} as const;
 
 describe("AgentActivity widget layout", () => {
-  it("formats its updated-at label in device-local time", () => {
-    expect(JSON.stringify(AgentActivity(props, environment as never))).toContain(
-      `"children":["Updated ","${expectedLocalTime(props.updatedAt)}"]`,
-    );
-    expect(AgentActivity.toString()).not.toContain("formatAgentActivityUpdatedAtLabel");
-  });
-
-  it("uses now when the updated-at timestamp is malformed", () => {
-    expect(
-      JSON.stringify(AgentActivity({ ...props, updatedAt: "not-a-date" }, environment as never)),
-    ).toContain('"children":["Updated ","now"]');
-  });
-
-  it("tints each row by its own phase", () => {
+  it("tints each row by its own phase using the web sidebar's dark palette", () => {
     const layout = AgentActivity(
       {
         ...props,
@@ -86,8 +77,68 @@ describe("AgentActivity widget layout", () => {
       environment as never,
     );
     const banner = JSON.stringify(layout.banner);
-    expect(banner).toContain("#14b8a6");
-    expect(banner).toContain("#f97316");
+    expect(banner).toContain("#7dd3fc"); // sky-300: running
+    expect(banner).toContain("#fcd34d"); // amber-300: waiting_for_approval
+  });
+
+  it("switches to the web sidebar's light palette when the scheme is light", () => {
+    // macOS (iPhone Mirroring / Mac notification center) renders the activity
+    // on a light background; the dark-material palette is illegible there.
+    const layout = AgentActivity(
+      {
+        ...props,
+        activeCount: 2,
+        activities: [
+          makeRow({}),
+          makeRow({ threadId: "thread-2", phase: "waiting_for_approval", status: "Approval" }),
+        ],
+      },
+      lightEnvironment as never,
+    );
+    const banner = JSON.stringify(layout.banner);
+    expect(banner).toContain("#0284c7"); // sky-600: running
+    expect(banner).toContain("#d97706"); // amber-600: waiting_for_approval
+    expect(banner).not.toContain("#7dd3fc");
+    expect(banner).not.toContain("#fcd34d");
+  });
+
+  it("orders rows attention-first in the banner", () => {
+    const layout = AgentActivity(
+      {
+        ...props,
+        activeCount: 2,
+        activities: [
+          makeRow({ threadTitle: "Working thread" }),
+          makeRow({
+            threadId: "thread-2",
+            threadTitle: "Blocked thread",
+            phase: "waiting_for_approval",
+            status: "Approval",
+          }),
+        ],
+      },
+      environment as never,
+    );
+    const banner = JSON.stringify(layout.banner);
+    expect(banner.indexOf("Blocked thread")).toBeGreaterThan(-1);
+    expect(banner.indexOf("Blocked thread")).toBeLessThan(banner.indexOf("Working thread"));
+  });
+
+  it("summarizes the attention count in the banner header", () => {
+    const layout = AgentActivity(
+      {
+        ...props,
+        activeCount: 3,
+        activities: [
+          makeRow({}),
+          makeRow({ threadId: "thread-2", phase: "waiting_for_input", status: "Input" }),
+        ],
+      },
+      environment as never,
+    );
+    const banner = JSON.stringify(layout.banner);
+    expect(banner).toContain("3 active agents");
+    expect(banner).toContain("1 needs attention");
   });
 
   it("uses the attention tint for the compact presentations when a row needs input", () => {
@@ -102,9 +153,9 @@ describe("AgentActivity widget layout", () => {
       },
       environment as never,
     );
-    expect(JSON.stringify(layout.compactLeading)).toContain("#f97316");
+    expect(JSON.stringify(layout.compactLeading)).toContain("#a5b4fc"); // indigo-300
     expect(JSON.stringify(layout.compactTrailing)).toContain("Input");
-    expect(JSON.stringify(layout.minimal)).toContain("#f97316");
+    expect(JSON.stringify(layout.minimal)).toContain("#a5b4fc");
   });
 
   it("deep links the banner to the row that needs attention", () => {
@@ -148,15 +199,21 @@ describe("AgentActivity widget layout", () => {
     ).not.toContain("widgetURL");
   });
 
-  it("shows an overflow indicator when more activities are active than displayed", () => {
+  it("renders up to five rows in the banner", () => {
     const layout = AgentActivity(
       {
         ...props,
-        activeCount: 5,
-        activities: [makeRow({}), makeRow({ threadId: "t2" }), makeRow({ threadId: "t3" })],
+        activeCount: 6,
+        activities: [1, 2, 3, 4, 5, 6].map((n) =>
+          makeRow({ threadId: `t${n}`, threadTitle: `Thread ${n}` }),
+        ),
       },
       environment as never,
     );
-    expect(JSON.stringify(layout.banner)).toContain("+2 more - Updated ");
+    const banner = JSON.stringify(layout.banner);
+    for (const visible of [1, 2, 3, 4, 5]) {
+      expect(banner).toContain(`Thread ${visible}`);
+    }
+    expect(banner).not.toContain("Thread 6");
   });
 });
