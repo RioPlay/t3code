@@ -15,6 +15,7 @@ import { appAtomRegistry } from "../../state/atom-registry";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
   setAgentAwarenessRelayTokenProvider,
+  suspendAgentAwarenessRelayTokenProvider,
   unregisterAgentAwarenessDeviceForCurrentUser,
 } from "../agent-awareness/remoteRegistration";
 import { resolveCloudPublicConfig, resolveRelayClerkTokenOptions } from "./publicConfig";
@@ -29,6 +30,14 @@ function resetManagedRelayTokenCache() {
 
 export function deactivateCloudRelayAccount(): void {
   setAgentAwarenessRelayTokenProvider(null);
+  setManagedRelaySession(appAtomRegistry, null);
+}
+
+// Teardown without sign-out semantics: the Clerk session may still be valid
+// (bridge remounts, provider tree changes, missing cloud config), so local
+// Live Activities and the persisted registration record must survive.
+export function suspendCloudRelayAccount(): void {
+  suspendAgentAwarenessRelayTokenProvider();
   setManagedRelaySession(appAtomRegistry, null);
 }
 
@@ -143,7 +152,7 @@ function CloudAuthBridge(props: { readonly children: ReactNode }) {
   useEffect(
     () => () => {
       previousTokenProviderRef.current = null;
-      deactivateCloudRelayAccount();
+      suspendCloudRelayAccount();
     },
     [],
   );
@@ -158,7 +167,7 @@ export function CloudAuthProvider(props: { readonly children: ReactNode }) {
 
   useEffect(() => {
     if (!publishableKey || !relayUrl) {
-      deactivateCloudRelayAccount();
+      suspendCloudRelayAccount();
     }
   }, [publishableKey, relayUrl]);
 

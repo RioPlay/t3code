@@ -143,6 +143,30 @@ export function shouldRegisterAgentAwarenessDeviceForProvider(
   return identity === undefined || identity !== previousIdentity;
 }
 
+function removeRelaySubscriptions(): void {
+  pushToStartSubscription?.remove();
+  pushToStartSubscription = null;
+  pushTokenSubscription?.remove();
+  pushTokenSubscription = null;
+  appStateSubscription?.remove();
+  appStateSubscription = null;
+  if (activeLiveActivityRegistrationRetry) {
+    clearTimeout(activeLiveActivityRegistrationRetry);
+    activeLiveActivityRegistrationRetry = null;
+  }
+}
+
+// Drops the relay token provider without sign-out semantics: the Clerk session
+// can still be valid while the auth bridge tears down (remounts, provider tree
+// changes, missing cloud config). Listeners stop, but local Live Activities,
+// the persisted registration record, and the provider identity stay intact so
+// re-activating the same account does not end activities or force
+// re-registration.
+export function suspendAgentAwarenessRelayTokenProvider(): void {
+  relayTokenProvider = null;
+  removeRelaySubscriptions();
+}
+
 export function setAgentAwarenessRelayTokenProvider(
   provider: (() => Promise<string | null>) | null,
   identity?: string,
@@ -158,16 +182,7 @@ export function setAgentAwarenessRelayTokenProvider(
   relayTokenProvider = provider;
   relayTokenProviderIdentity = provider ? (identity ?? null) : null;
   if (!provider) {
-    pushToStartSubscription?.remove();
-    pushToStartSubscription = null;
-    pushTokenSubscription?.remove();
-    pushTokenSubscription = null;
-    appStateSubscription?.remove();
-    appStateSubscription = null;
-    if (activeLiveActivityRegistrationRetry) {
-      clearTimeout(activeLiveActivityRegistrationRetry);
-      activeLiveActivityRegistrationRetry = null;
-    }
+    removeRelaySubscriptions();
     // Without a signed-in user the relay can no longer update or end these
     // activities, so they would sit orphaned on the lock screen.
     endLocalLiveActivities("live activity cleanup after cloud sign-out failed");
@@ -472,6 +487,11 @@ function startPendingDeviceRegistration(): void {
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
       setRegistrationStatus("failed");
       logRegistrationError(next.context, squashAtomCommandFailure(result));
+    } else if (registrationStatus === "pending") {
+      // The registration exited without reaching the relay (signed out,
+      // missing relay config, or superseded by a newer generation); don't
+      // leave the status stuck on pending.
+      setRegistrationStatus("unknown");
     }
     logRegistrationDebug("device registration finished", { generation });
     if (activeDeviceRegistration === registration) {
