@@ -9,6 +9,7 @@ import * as RelayClient from "@t3tools/shared/relayClient";
 import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
 import * as Cause from "effect/Cause";
 import * as Console from "effect/Console";
+import * as Crypto from "effect/Crypto";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -16,6 +17,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as References from "effect/References";
+import * as Schema from "effect/Schema";
 import { Command, Flag, GlobalFlag, Prompt } from "effect/unstable/cli";
 import {
   FetchHttpClient,
@@ -41,6 +43,53 @@ const jsonFlag = Flag.boolean("json").pipe(
   Flag.withDescription("Emit JSON instead of human-readable output."),
   Flag.withDefault(false),
 );
+
+const isCloudCliTokenManagerError = Schema.is(CliTokenManager.CloudCliTokenManagerError);
+
+const pasteFlag = Flag.boolean("paste").pipe(
+  Flag.withDescription(
+    "Authorize by pasting a code from the hosted app instead of a local browser callback.",
+  ),
+  Flag.withDefault(false),
+);
+
+/**
+ * Inside an SSH session there is no local browser to complete the loopback
+ * OAuth callback, so the paste-code flow is the only one that can work.
+ */
+const detectHeadlessSession = Effect.sync(
+  () => process.env.SSH_CONNECTION !== undefined || process.env.SSH_TTY !== undefined,
+);
+
+const promptForPastedCode = ({ authorizeUrl, validate }: CliTokenManager.PasteCodePromptInput) =>
+  Console.log(`To set up T3 Connect, open this URL and sign in:\n  ${authorizeUrl}\n`).pipe(
+    Effect.andThen(
+      Prompt.run(Prompt.text({ message: "Paste your authentication code here", validate })),
+    ),
+  );
+
+const authorizeCli = Effect.fn("cloud.cli.authorize")(function* (options: {
+  readonly paste: boolean;
+}) {
+  const tokens = yield* CliTokenManager.CloudCliTokenManager;
+  const paste = options.paste || (yield* detectHeadlessSession);
+  if (!paste) {
+    yield* tokens.get;
+    return;
+  }
+  const existing = yield* tokens.getExisting;
+  if (Option.isSome(existing)) {
+    return;
+  }
+  const token = yield* CliTokenManager.pasteCodeLogin(promptForPastedCode).pipe(
+    Effect.mapError((cause) =>
+      isCloudCliTokenManagerError(cause)
+        ? cause
+        : new CliTokenManager.CloudCliAuthorizationError({ cause }),
+    ),
+  );
+  yield* tokens.store(token);
+});
 
 function bytesToString(value: Uint8Array): string {
   return new TextDecoder().decode(value);
@@ -321,6 +370,7 @@ const runCloudCommand = <A, E>(
     | CliTokenManager.CloudCliTokenManager
     | RelayClient.RelayClient
     | EnvironmentAuth.EnvironmentAuth
+    | Crypto.Crypto
     | FileSystem.FileSystem
     | HttpClient.HttpClient
     | Prompt.Environment
@@ -350,16 +400,38 @@ const runCloudCommand = <A, E>(
     return yield* run.pipe(Effect.provide(runtimeLayer));
   });
 
+const linkEnvironmentForConnect = Effect.fn("cloud.cli.link_environment")(function* (options: {
+  readonly paste: boolean;
+}) {
+  const relayClient = yield* RelayClient.RelayClient;
+  const installed = yield* acquireRelayClientForLink(
+    relayClient,
+    confirmRelayClientInstall,
+    reportRelayClientInstallProgress,
+  );
+  if (Option.isNone(installed)) {
+    yield* Console.log("T3 Connect setup cancelled. The relay client was not installed.");
+    return false;
+  }
+  yield* Console.log(
+    `Using relay client ${installed.value.version} from ${installed.value.executablePath}.`,
+  );
+
+  yield* authorizeCli(options);
+  yield* CliState.setCliDesiredCloudLink(true);
+  return true;
+});
+
 const connectLoginCommand = Command.make("login", {
   ...projectLocationFlags,
+  paste: pasteFlag,
 }).pipe(
   Command.withDescription("Authorize the T3 Connect CLI without enabling remote access."),
   Command.withHandler((flags) =>
     runCloudCommand(
       flags,
       Effect.gen(function* () {
-        const tokens = yield* CliTokenManager.CloudCliTokenManager;
-        yield* tokens.get;
+        yield* authorizeCli(flags);
         yield* Console.log("Signed in to T3 Connect.");
       }),
     ),
@@ -368,32 +440,18 @@ const connectLoginCommand = Command.make("login", {
 
 const connectLinkCommand = Command.make("link", {
   ...projectLocationFlags,
+  paste: pasteFlag,
 }).pipe(
   Command.withDescription("Authorize this environment for T3 Connect on next start."),
   Command.withHandler((flags) =>
     runCloudCommand(
       flags,
       Effect.gen(function* () {
-        const relayClient = yield* RelayClient.RelayClient;
-        const installed = yield* acquireRelayClientForLink(
-          relayClient,
-          confirmRelayClientInstall,
-          reportRelayClientInstallProgress,
-        );
-        if (Option.isNone(installed)) {
-          yield* Console.log("T3 Connect setup cancelled. The relay client was not installed.");
-          return;
+        if (yield* linkEnvironmentForConnect(flags)) {
+          yield* Console.log(
+            "This T3 environment will be available through T3 Connect the next time T3 starts.",
+          );
         }
-        yield* Console.log(
-          `Using relay client ${installed.value.version} from ${installed.value.executablePath}.`,
-        );
-
-        const tokens = yield* CliTokenManager.CloudCliTokenManager;
-        yield* tokens.get;
-        yield* CliState.setCliDesiredCloudLink(true);
-        yield* Console.log(
-          "This T3 environment will be available through T3 Connect the next time T3 starts.",
-        );
       }),
     ),
   ),
@@ -456,8 +514,27 @@ const connectLogoutCommand = Command.make("logout", {
   ),
 );
 
-export const connectCommand = Command.make("connect").pipe(
-  Command.withDescription("Manage headless T3 Connect access."),
+export const connectCommand = Command.make("connect", {
+  ...projectLocationFlags,
+  paste: pasteFlag,
+}).pipe(
+  Command.withDescription("Set up T3 Connect for this machine."),
+  Command.withHandler((flags) =>
+    runCloudCommand(
+      flags,
+      Effect.gen(function* () {
+        if (!(yield* linkEnvironmentForConnect(flags))) {
+          return;
+        }
+        yield* Console.log(
+          "\nConnected! This environment will be available through T3 Connect whenever T3 is running.",
+        );
+        yield* Console.log(
+          "Start it with `t3 serve`, or run `t3 connect status` to inspect the link.",
+        );
+      }),
+    ),
+  ),
   Command.withSubcommands([
     connectLoginCommand,
     connectLinkCommand,

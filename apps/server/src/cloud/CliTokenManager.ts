@@ -21,8 +21,18 @@ import * as HttpRouter from "effect/unstable/http/HttpRouter";
 import * as HttpServerRequest from "effect/unstable/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 
+import {
+  buildConnectAuthorizeRequestUrl,
+  connectCallbackUrl,
+  parseConnectAuthCode,
+} from "@t3tools/shared/connectAuth";
+
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import { cloudCliOAuthConfig, type CloudCliOAuthConfig } from "./publicConfig.ts";
+import {
+  cloudCliOAuthConfig,
+  hostedAppUrlConfig,
+  type CloudCliOAuthConfig,
+} from "./publicConfig.ts";
 
 const CLOUD_CLI_OAUTH_TOKEN_SECRET = "cloud-cli-oauth-token";
 const CLOUD_CLI_OAUTH_CALLBACK_TIMEOUT = Duration.minutes(10);
@@ -33,7 +43,7 @@ const PersistedToken = Schema.Struct({
   refreshToken: Schema.String,
   expiresAtEpochMs: Schema.Number,
 });
-type PersistedToken = typeof PersistedToken.Type;
+export type PersistedToken = typeof PersistedToken.Type;
 
 const PersistedTokenJson = Schema.fromJsonString(PersistedToken);
 const decodePersistedToken = Schema.decodeUnknownEffect(PersistedTokenJson);
@@ -106,6 +116,7 @@ export class CloudCliTokenManager extends Context.Service<
     readonly get: Effect.Effect<PersistedToken, CloudCliTokenManagerError>;
     readonly getExisting: Effect.Effect<Option.Option<PersistedToken>, CloudCliTokenManagerError>;
     readonly hasCredential: Effect.Effect<boolean, CloudCliTokenManagerError>;
+    readonly store: (token: PersistedToken) => Effect.Effect<void, CloudCliTokenManagerError>;
     readonly clear: Effect.Effect<void, CloudCliTokenManagerError>;
   }
 >()("t3/cloud/CliTokenManager/CloudCliTokenManager") {}
@@ -123,9 +134,86 @@ function bytesToString(value: Uint8Array): string {
   return new TextDecoder().decode(value);
 }
 
-export const make = Effect.gen(function* () {
-  const crypto = yield* Crypto.Crypto;
+const exchangeToken = Effect.fn("cloud.cli_token.exchange")(function* (
+  metadata: Pick<CloudCliOAuthConfig, "tokenEndpoint">,
+  params: Record<string, string>,
+) {
   const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk);
+  const response = yield* HttpClientRequest.post(metadata.tokenEndpoint).pipe(
+    HttpClientRequest.bodyUrlParams(params),
+    httpClient.execute,
+    Effect.flatMap(HttpClientResponse.schemaBodyJson(OAuthTokenResponse)),
+  );
+  const now = yield* Clock.currentTimeMillis;
+  return {
+    accessToken: response.access_token,
+    refreshToken: response.refresh_token ?? params.refresh_token ?? "",
+    expiresAtEpochMs: now + response.expires_in * 1_000,
+  } satisfies PersistedToken;
+});
+
+const makePkceRequest = Effect.gen(function* () {
+  const crypto = yield* Crypto.Crypto;
+  const verifier = Encoding.encodeBase64Url(yield* crypto.randomBytes(32));
+  const challenge = Encoding.encodeBase64Url(
+    yield* crypto.digest("SHA-256", new TextEncoder().encode(verifier)),
+  );
+  const state = yield* crypto.randomUUIDv4;
+  return { verifier, challenge, state };
+});
+
+export interface PasteCodePromptInput {
+  readonly authorizeUrl: string;
+  readonly validate: (value: string) => Effect.Effect<string, string>;
+}
+
+/**
+ * Out-of-band authorization for machines without a local browser (SSH). The
+ * user opens the hosted /connect URL elsewhere, signs in, and pastes the
+ * displayed code back into this terminal. The PKCE verifier never leaves
+ * this process, so the pasted code is useless to an observer, and the state
+ * bundled into the blob preserves the loopback flow's CSRF check.
+ */
+export const pasteCodeLogin = Effect.fn("cloud.cli_token.paste_code_login")(function* <E, R>(
+  promptForCode: (input: PasteCodePromptInput) => Effect.Effect<string, E, R>,
+) {
+  const metadata = yield* cloudCliOAuthConfig;
+  const hostedAppUrl = yield* hostedAppUrlConfig;
+  const { verifier, challenge, state } = yield* makePkceRequest;
+
+  const pasted = yield* promptForCode({
+    authorizeUrl: buildConnectAuthorizeRequestUrl({ hostedAppUrl, state, challenge }),
+    validate: (value) => {
+      const parsed = parseConnectAuthCode(value);
+      if (parsed === null) {
+        return Effect.fail("That does not look like a T3 Connect code. Copy the full code.");
+      }
+      if (parsed.state !== state) {
+        return Effect.fail(
+          "That code belongs to a different connect request. Open the URL above and try again.",
+        );
+      }
+      return Effect.succeed(value);
+    },
+  });
+  const authCode = parseConnectAuthCode(pasted);
+  if (authCode === null || authCode.state !== state) {
+    return yield* new CloudCliAuthorizationError({
+      cause: "Pasted code did not match this connect request.",
+    });
+  }
+
+  return yield* exchangeToken(metadata, {
+    grant_type: "authorization_code",
+    code: authCode.code,
+    redirect_uri: connectCallbackUrl(hostedAppUrl),
+    client_id: metadata.clientId,
+    code_verifier: verifier,
+  });
+});
+
+export const make = Effect.gen(function* () {
+  const services = yield* Effect.context<Crypto.Crypto | HttpClient.HttpClient>();
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const semaphore = yield* Semaphore.make(1);
   const persist = Effect.fn("cloud.cli_token.persist")(function* (token: PersistedToken) {
@@ -144,23 +232,6 @@ export const make = Effect.gen(function* () {
     return Option.some(yield* decodePersistedToken(bytesToString(encoded.value)));
   });
 
-  const exchangeToken = Effect.fn("cloud.cli_token.exchange")(function* (
-    metadata: CloudCliOAuthConfig,
-    params: Record<string, string>,
-  ) {
-    const response = yield* HttpClientRequest.post(metadata.tokenEndpoint).pipe(
-      HttpClientRequest.bodyUrlParams(params),
-      httpClient.execute,
-      Effect.flatMap(HttpClientResponse.schemaBodyJson(OAuthTokenResponse)),
-    );
-    const now = yield* Clock.currentTimeMillis;
-    return {
-      accessToken: response.access_token,
-      refreshToken: response.refresh_token ?? params.refresh_token ?? "",
-      expiresAtEpochMs: now + response.expires_in * 1_000,
-    } satisfies PersistedToken;
-  });
-
   const refresh = Effect.fn("cloud.cli_token.refresh")(function* (token: PersistedToken) {
     const metadata = yield* cloudCliOAuthConfig;
     return yield* exchangeToken(metadata, {
@@ -172,11 +243,7 @@ export const make = Effect.gen(function* () {
 
   const login = Effect.fn("cloud.cli_token.login")(function* () {
     const metadata = yield* cloudCliOAuthConfig;
-    const verifier = Encoding.encodeBase64Url(yield* crypto.randomBytes(32));
-    const challenge = Encoding.encodeBase64Url(
-      yield* crypto.digest("SHA-256", new TextEncoder().encode(verifier)),
-    );
-    const state = yield* crypto.randomUUIDv4;
+    const { verifier, challenge, state } = yield* makePkceRequest;
     const callback = yield* Deferred.make<string>();
     const callbackRoute = HttpRouter.add(
       "GET",
@@ -253,7 +320,10 @@ export const make = Effect.gen(function* () {
   });
 
   const getExisting = semaphore.withPermits(1)(
-    getExistingNoLock().pipe(wrapError((cause) => new CloudCliCredentialRefreshError({ cause }))),
+    getExistingNoLock().pipe(
+      wrapError((cause) => new CloudCliCredentialRefreshError({ cause })),
+      Effect.provide(services),
+    ),
   );
   const hasCredential = semaphore.withPermits(1)(
     read().pipe(
@@ -267,10 +337,20 @@ export const make = Effect.gen(function* () {
       return Option.isSome(token)
         ? token.value
         : yield* Effect.scoped(login()).pipe(Effect.flatMap(persist));
-    }).pipe(wrapError((cause) => new CloudCliAuthorizationError({ cause }))),
+    }).pipe(
+      wrapError((cause) => new CloudCliAuthorizationError({ cause })),
+      Effect.provide(services),
+    ),
   );
+  const store = (token: PersistedToken) =>
+    semaphore.withPermits(1)(
+      persist(token).pipe(
+        Effect.asVoid,
+        wrapError((cause) => new CloudCliAuthorizationError({ cause })),
+      ),
+    );
 
-  return CloudCliTokenManager.of({ get, getExisting, hasCredential, clear });
+  return CloudCliTokenManager.of({ get, getExisting, hasCredential, store, clear });
 });
 
 export const layer = Layer.effect(CloudCliTokenManager, make);
