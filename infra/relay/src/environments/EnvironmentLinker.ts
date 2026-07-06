@@ -287,27 +287,6 @@ const make = Effect.gen(function* () {
           stage: "validate_origin",
         });
       }
-      // Downgrading a managed link to publish-only must release the tunnel and
-      // DNS that were provisioned for it — nothing else cleans them up until a
-      // full unlink. Best effort: a cleanup failure must not block the link
-      // itself, and the provider treats an absent allocation as already
-      // deprovisioned, so retrying on every non-tunnel link is cheap.
-      if (!input.request.managedTunnelsEnabled) {
-        yield* managedEndpointProvider
-          .deprovision({
-            userId: input.userId,
-            environmentId: verified.environmentId,
-          })
-          .pipe(
-            Effect.tapError((error) =>
-              Effect.logWarning("managed endpoint deprovision on publish-only link failed", {
-                environmentId: verified.environmentId,
-                errorTag: error._tag,
-              }),
-            ),
-            Effect.ignore,
-          );
-      }
       const provisioned = input.request.managedTunnelsEnabled
         ? yield* managedEndpointProvider.provision({
             userId: input.userId,
@@ -333,6 +312,30 @@ const make = Effect.gen(function* () {
         environmentId: verified.environmentId,
         environmentPublicKey: verified.environmentPublicKey,
       });
+      // Downgrading a managed link to publish-only must release the tunnel and
+      // DNS that were provisioned for it — nothing else cleans them up until a
+      // full unlink. Deprovisioning is an irreversible side effect, so it runs
+      // only after the link and credential are durably persisted; a failure
+      // beforehand must not leave the stored link pointing at a torn-down
+      // tunnel. Best effort: a cleanup failure must not block the link itself,
+      // and the provider treats an absent allocation as already deprovisioned,
+      // so retrying on every non-tunnel link is cheap.
+      if (!input.request.managedTunnelsEnabled) {
+        yield* managedEndpointProvider
+          .deprovision({
+            userId: input.userId,
+            environmentId: verified.environmentId,
+          })
+          .pipe(
+            Effect.tapError((error) =>
+              Effect.logWarning("managed endpoint deprovision on publish-only link failed", {
+                environmentId: verified.environmentId,
+                errorTag: error._tag,
+              }),
+            ),
+            Effect.ignore,
+          );
+      }
       return {
         environmentId: verified.environmentId,
         endpoint,

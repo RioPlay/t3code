@@ -167,10 +167,13 @@ function alertAllowedForPhase(
   }
 }
 
-// Alert copy for an update whose aggregate contains threads that were NOT in an
-// attention phase in the previously delivered aggregate. A null previous
-// aggregate means there is no known baseline (fresh registration, replay after
-// data loss) — alerting there would buzz on reconnect, not on a transition.
+// Alert copy for an update whose aggregate contains threads that were NOT in
+// the same attention phase in the previously delivered aggregate. Keying by
+// thread AND phase means a thread moving between attention kinds (approval →
+// input) alerts again — the user is blocked on a new kind of attention. A null
+// previous aggregate means there is no known baseline (fresh registration,
+// replay after data loss) — alerting there would buzz on reconnect, not on a
+// transition.
 export function alertForAttentionTransition(input: {
   readonly previousAggregate: RelayAgentActivityAggregateState | null;
   readonly nextAggregate: RelayAgentActivityAggregateState;
@@ -182,12 +185,12 @@ export function alertForAttentionTransition(input: {
   const previouslyAttention = new Set(
     input.previousAggregate.activities
       .filter((row) => isAttentionPhase(row.phase))
-      .map((row) => row.threadId),
+      .map((row) => `${row.threadId}\u0000${row.phase}`),
   );
   const newlyAttention = input.nextAggregate.activities.filter(
     (row) =>
       isAttentionPhase(row.phase) &&
-      !previouslyAttention.has(row.threadId) &&
+      !previouslyAttention.has(`${row.threadId}\u0000${row.phase}`) &&
       alertAllowedForPhase(input.preferences, row.phase),
   );
   const first = newlyAttention[0];
