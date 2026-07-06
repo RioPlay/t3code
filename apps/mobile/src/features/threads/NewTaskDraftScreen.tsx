@@ -626,15 +626,57 @@ export function NewTaskDraftScreen(props: {
               ) : null}
             </ComposerSurface>
 
-            <ComposerToolbarRow paddingBottom={8} paddingHorizontal={0} paddingTop={8}>
-              <ComposerToolbarScroller
-                fadeOpaque={isDarkMode ? "rgba(0,0,0,0.95)" : "rgba(255,255,255,0.95)"}
-                fadeTransparent={isDarkMode ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)"}
-              >
-                {toolbarPills}
-              </ComposerToolbarScroller>
-              {isExpanded ? startButton : null}
-            </ComposerToolbarRow>
+            {!isExpanded ? (
+              // Collapsed Android toolbar mirrors ThreadComposer: exactly three
+              // controls, no scroller, with the two selector pills flexing to
+              // fill the row.
+              <ComposerToolbarRow paddingBottom={8} paddingHorizontal={0} paddingTop={8}>
+                <ComposerToolbarButton
+                  accessibilityLabel="Add attachment"
+                  icon="plus"
+                  onPress={() => void handlePickImages()}
+                  showChevron={false}
+                />
+                <ControlPillMenu
+                  style={{ flex: 1, minWidth: 0 }}
+                  actions={modelMenuActions}
+                  onPressAction={({ nativeEvent }) => handleModelMenuAction(nativeEvent.event)}
+                >
+                  <ComposerToolbarTrigger
+                    accessibilityLabel="Model"
+                    iconNode={
+                      <ProviderIcon provider={flow.selectedModelOption?.providerDriver} size={16} />
+                    }
+                    label={flow.selectedModelOption?.label ?? "Model"}
+                    style={{ maxWidth: "100%", width: "100%" }}
+                  />
+                </ControlPillMenu>
+                <ControlPillMenu
+                  // The reasoning/config label runs longer than most model names,
+                  // so it gets a larger share of the row.
+                  style={{ flex: 1.4, minWidth: 0 }}
+                  actions={optionsMenuActions}
+                  onPressAction={({ nativeEvent }) => handleOptionsMenuAction(nativeEvent.event)}
+                >
+                  <ComposerToolbarTrigger
+                    accessibilityLabel="Configuration"
+                    icon="slider.horizontal.3"
+                    label={configurationLabel}
+                    style={{ maxWidth: "100%", width: "100%" }}
+                  />
+                </ControlPillMenu>
+              </ComposerToolbarRow>
+            ) : (
+              <ComposerToolbarRow paddingBottom={8} paddingHorizontal={0} paddingTop={8}>
+                <ComposerToolbarScroller
+                  fadeOpaque={isDarkMode ? "rgba(0,0,0,0.95)" : "rgba(255,255,255,0.95)"}
+                  fadeTransparent={isDarkMode ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)"}
+                >
+                  {toolbarPills}
+                </ComposerToolbarScroller>
+                {startButton}
+              </ComposerToolbarRow>
+            )}
           </View>
         </KeyboardAvoidingView>
       </View>
