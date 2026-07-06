@@ -216,6 +216,15 @@ export function setAgentAwarenessRelayTokenProvider(
 // the persisted registration would be wrong — the relay still holds a valid
 // registration and the next mount reuses it.
 export function releaseAgentAwarenessRelayTokenProvider(): void {
+  // Cancel queued and in-flight registrations: they re-read the provider and
+  // identity from module state after await boundaries, so one that crosses
+  // this release would observe a null provider and reset the status to
+  // "unknown" (or persist a record with a blank identity). The generation
+  // bump makes them bail at their next checkpoint, leaving the status and
+  // the persisted record untouched.
+  deviceRegistrationGeneration++;
+  activeDeviceRegistration = null;
+  pendingDeviceRegistration = null;
   relayTokenProvider = null;
   relayTokenProviderIdentity = null;
   pushToStartSubscription?.remove();
