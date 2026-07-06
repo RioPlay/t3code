@@ -149,7 +149,36 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-asset",
-    "expo-font",
+    [
+      "expo-font",
+      {
+        // Embeds DM Sans as native Android font resources (res/font) so
+        // native chrome themed by the config plugins (alert dialogs) can use
+        // the app typeface; JS font loading via @expo-google-fonts is
+        // unaffected.
+        android: {
+          fonts: [
+            {
+              fontFamily: "DM Sans",
+              fontDefinitions: [
+                {
+                  path: "node_modules/@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
+                  weight: 400,
+                },
+                {
+                  path: "node_modules/@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf",
+                  weight: 500,
+                },
+                {
+                  path: "node_modules/@expo-google-fonts/dm-sans/700Bold/DMSans_700Bold.ttf",
+                  weight: 700,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
     "expo-secure-store",
     ["@clerk/expo", { theme: "./clerk-theme.json", appleSignIn: !isIosPersonalTeamBuild }],
     "expo-web-browser",
@@ -192,6 +221,7 @@ const config: ExpoConfig = {
     "./plugins/withAndroidCleartextTraffic.cjs",
     "./plugins/withAndroidGradleHeap.cjs",
     "./plugins/withAndroidModernPopupMenu.cjs",
+    "./plugins/withAndroidModernAlertDialog.cjs",
     ...(isIosPersonalTeamBuild ? ["./plugins/withoutIosPersonalTeamCapabilities.cjs"] : []),
   ],
   extra: {
