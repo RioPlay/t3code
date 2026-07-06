@@ -66,7 +66,9 @@ const activityPushTokenListeners = new WeakSet<LiveActivity<AgentActivityProps>>
 // pure no-op relay round-trip — and the refresh runs on sign-in, every app
 // foreground, and every environment-connection update, which spammed identical
 // registrations. Cleared on sign-out/identity change alongside the device
-// registration state.
+// registration state, and on app foreground: re-registering there is not
+// redundant because it makes the relay replay the current aggregate (see
+// ensureAppStateListener).
 const registeredActivityPushTokens = new Set<string>();
 let pushToStartSubscription: { remove: () => void } | null = null;
 let pushTokenSubscription: { remove: () => void } | null = null;
@@ -618,6 +620,9 @@ function ensureAppStateListener(): void {
     if (state !== "active") {
       return;
     }
+    // Drop the session cache so the tokens are re-sent: the relay replay is
+    // the whole point of this refresh, and a cache hit would skip it.
+    registeredActivityPushTokens.clear();
     runRegistrationInBackground(
       refreshActiveLiveActivityRemoteRegistration(),
       "active live activity reconciliation after app foreground failed",
