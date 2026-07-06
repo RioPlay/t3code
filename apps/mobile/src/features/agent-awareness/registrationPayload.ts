@@ -2,11 +2,24 @@ import type { RelayDeviceRegistrationRequest } from "@t3tools/contracts/relay";
 
 import type { Preferences } from "../../lib/storage";
 
-// Development builds are Xcode-signed and receive sandbox APNs tokens;
-// preview and production builds are distribution-signed and use production
-// APNs. The relay routes each device's pushes accordingly.
-export function resolveApsEnvironment(appVariant: unknown): "sandbox" | "production" {
-  return appVariant === "development" ? "sandbox" : "production";
+// The APNs environment follows code signing, not the app variant: any
+// Xcode-signed debug install (regardless of APP_VARIANT) receives sandbox
+// device tokens, while distribution-signed builds use production APNs. The
+// embedded provisioning profile's aps-environment entitlement is the
+// authoritative signal; the variant is only a fallback for builds where the
+// entitlement cannot be read (for example App Store installs, which strip the
+// embedded profile and always use production APNs).
+export function resolveApsEnvironment(input: {
+  readonly appVariant: unknown;
+  readonly pushEnvironment: "development" | "production" | null;
+}): "sandbox" | "production" {
+  if (input.pushEnvironment === "development") {
+    return "sandbox";
+  }
+  if (input.pushEnvironment === "production") {
+    return "production";
+  }
+  return input.appVariant === "development" ? "sandbox" : "production";
 }
 
 export function makeRelayDeviceRegistrationRequest(input: {

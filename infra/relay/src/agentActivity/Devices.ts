@@ -252,6 +252,7 @@ export const make = Effect.gen(function* () {
             .select({
               deviceId: relayLiveActivities.deviceId,
               activityPushToken: relayLiveActivities.activityPushToken,
+              endedAt: relayLiveActivities.endedAt,
             })
             .from(relayLiveActivities)
             .where(eq(relayLiveActivities.userId, input.userId))
@@ -274,8 +275,14 @@ export const make = Effect.gen(function* () {
         { concurrency: 3 },
       );
 
+      // A token can outlive its activity (rows keep the token after a remote
+      // end), so only ended_at distinguishes a live registration from a
+      // finished one.
       const activityTokenByDevice = new Map(
-        activityRows.map((row) => [row.deviceId, row.activityPushToken]),
+        activityRows.map((row) => [
+          row.deviceId,
+          row.endedAt === null ? row.activityPushToken : null,
+        ]),
       );
       const lastAttemptByDevice = new Map<string, (typeof attemptRows)[number]>();
       for (const attempt of attemptRows) {

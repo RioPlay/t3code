@@ -198,7 +198,9 @@ describe("Devices", () => {
           if (table === relayLiveActivities) {
             return {
               where: () =>
-                Effect.succeed([{ deviceId: "device-1", activityPushToken: "activity-token" }]),
+                Effect.succeed([
+                  { deviceId: "device-1", activityPushToken: "activity-token", endedAt: null },
+                ]),
             };
           }
           return {
@@ -270,6 +272,61 @@ describe("Devices", () => {
           updatedAt: "2026-06-01T00:00:00.000Z",
         },
       ]);
+    }).pipe(
+      Effect.provide(Devices.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb)))),
+    );
+  });
+
+  it.effect("does not report a live activity token once the activity has ended", () => {
+    const fakeDb = {
+      select: () => ({
+        from: (table: unknown) => {
+          if (table === relayMobileDevices) {
+            return {
+              where: () =>
+                Effect.succeed([
+                  {
+                    deviceId: "device-1",
+                    label: "Julius's iPhone",
+                    platform: "ios" as const,
+                    iosMajorVersion: 18,
+                    appVersion: "1.0.0",
+                    bundleId: "com.t3tools.t3code.preview",
+                    apsEnvironment: "production" as const,
+                    pushToken: "apns-device-token",
+                    pushToStartToken: null,
+                    preferences: registration.preferences,
+                    updatedAt: "2026-06-01T00:00:00.000Z",
+                  },
+                ]),
+            };
+          }
+          if (table === relayLiveActivities) {
+            return {
+              where: () =>
+                Effect.succeed([
+                  {
+                    deviceId: "device-1",
+                    activityPushToken: "activity-token",
+                    endedAt: "2026-06-05T01:02:59.566Z",
+                  },
+                ]),
+            };
+          }
+          return {
+            where: () => ({
+              orderBy: () => ({ limit: () => Effect.succeed([]) }),
+            }),
+          };
+        },
+      }),
+    } as unknown as RelayDb.RelayDb["Service"];
+
+    return Effect.gen(function* () {
+      const devices = yield* Devices.Devices;
+      const listed = yield* devices.listForUser({ userId: "user-2" });
+
+      expect(listed[0]?.diagnostics?.hasLiveActivityToken).toBe(false);
     }).pipe(
       Effect.provide(Devices.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb)))),
     );

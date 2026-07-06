@@ -1,4 +1,5 @@
 import { addPushToStartTokenListener, type LiveActivity } from "expo-widgets";
+import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import * as Effect from "effect/Effect";
@@ -33,6 +34,7 @@ const REMOTE_ACTIVITY_REGISTRATION_RETRY_MS = 15_000;
 const AgentAwarenessOperation = Schema.Literals([
   "read-notification-permissions",
   "read-native-push-token",
+  "read-aps-environment",
   "read-device-registration-relay-token",
   "read-device-unregistration-relay-token",
   "read-live-activity-registration-relay-token",
@@ -161,6 +163,26 @@ function iosMajorVersion(): number {
   const major = Number.parseInt(version.split(".")[0] ?? "", 10);
   return Number.isFinite(major) ? major : 18;
 }
+
+// Reads the aps-environment entitlement from the embedded provisioning
+// profile so the relay routes pushes to the APNs host that issued this
+// build's tokens. Store installs strip the embedded profile (null), so the
+// caller falls back to the app variant.
+const nativePushEnvironment = Effect.tryPromise({
+  try: () => Application.getIosPushNotificationServiceEnvironmentAsync(),
+  catch: (cause) =>
+    new AgentAwarenessOperationError({
+      operation: "read-aps-environment",
+      cause,
+    }),
+}).pipe(
+  Effect.tapError((error) =>
+    Effect.sync(() => {
+      logRegistrationError("APNs environment lookup failed", error);
+    }),
+  ),
+  Effect.orElseSucceed(() => null),
+);
 
 function nativePushTokenRegistration(observedPushToken?: string) {
   return Effect.gen(function* () {
@@ -446,7 +468,10 @@ function registerDevice(
           }),
       }),
     ]);
-    const pushTokenRegistration = yield* nativePushTokenRegistration(input?.observedPushToken);
+    const [pushTokenRegistration, pushEnvironment] = yield* Effect.all([
+      nativePushTokenRegistration(input?.observedPushToken),
+      nativePushEnvironment,
+    ]);
     logRegistrationDebug("device registration local state ready", {
       expectedGeneration,
       notificationsEnabled: pushTokenRegistration.notificationsEnabled,
@@ -459,7 +484,10 @@ function registerDevice(
         iosMajorVersion: iosMajorVersion(),
         appVersion: Constants.expoConfig?.version,
         ...(bundleId ? { bundleId } : {}),
-        apsEnvironment: resolveApsEnvironment(Constants.expoConfig?.extra?.appVariant),
+        apsEnvironment: resolveApsEnvironment({
+          appVariant: Constants.expoConfig?.extra?.appVariant,
+          pushEnvironment,
+        }),
         ...(pushTokenRegistration.pushToken ? { pushToken: pushTokenRegistration.pushToken } : {}),
         ...(input?.pushToStartToken ? { pushToStartToken: input.pushToStartToken } : {}),
         notificationsEnabled: pushTokenRegistration.notificationsEnabled,

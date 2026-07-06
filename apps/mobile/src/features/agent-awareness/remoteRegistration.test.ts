@@ -45,6 +45,10 @@ const appStateMock = vi.hoisted(() => ({
   listeners: [] as Array<(state: string) => void>,
 }));
 
+vi.mock("expo-application", () => ({
+  getIosPushNotificationServiceEnvironmentAsync: vi.fn(() => Promise.resolve(null)),
+}));
+
 vi.mock("expo-constants", () => ({
   default: {
     expoConfig: {
@@ -238,7 +242,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         iosMajorVersion: 18,
         appVersion: "1.0.0",
         bundleId: "com.t3tools.t3code.preview",
-        apsEnvironment: resolveApsEnvironment("preview"),
+        apsEnvironment: resolveApsEnvironment({ appVariant: "preview", pushEnvironment: null }),
         notificationsEnabled: true,
         preferences: {},
       }),
@@ -248,11 +252,25 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     });
   });
 
-  it("routes development builds to the APNs sandbox", () => {
-    expect(resolveApsEnvironment("development")).toBe("sandbox");
-    expect(resolveApsEnvironment("preview")).toBe("production");
-    expect(resolveApsEnvironment("production")).toBe("production");
-    expect(resolveApsEnvironment(undefined)).toBe("production");
+  it("routes builds by their signed APNs entitlement before the app variant", () => {
+    expect(resolveApsEnvironment({ appVariant: "preview", pushEnvironment: "development" })).toBe(
+      "sandbox",
+    );
+    expect(
+      resolveApsEnvironment({ appVariant: "development", pushEnvironment: "production" }),
+    ).toBe("production");
+    expect(resolveApsEnvironment({ appVariant: "development", pushEnvironment: null })).toBe(
+      "sandbox",
+    );
+    expect(resolveApsEnvironment({ appVariant: "preview", pushEnvironment: null })).toBe(
+      "production",
+    );
+    expect(resolveApsEnvironment({ appVariant: "production", pushEnvironment: null })).toBe(
+      "production",
+    );
+    expect(resolveApsEnvironment({ appVariant: undefined, pushEnvironment: null })).toBe(
+      "production",
+    );
   });
 
   it("marks notification delivery disabled when APNs permission is unavailable", () => {
