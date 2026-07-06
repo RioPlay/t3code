@@ -12,7 +12,7 @@ import * as Headers from "effect/unstable/http/Headers";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import { ApnsEnvironment as ApnsEnvironmentSchema, type ApnsCredentials } from "../Config.ts";
-import type { ApnsNotificationPayload } from "./apnsDeliveryJobs.ts";
+import type { ApnsLiveActivityAlert, ApnsNotificationPayload } from "./apnsDeliveryJobs.ts";
 
 const LIVE_ACTIVITY_NAME = "AgentActivity";
 // Updates only flow on domain events, so a healthy agent can be silent for
@@ -201,11 +201,26 @@ type MakeLiveActivityRequestInput =
   | (LiveActivityRequestBase & {
       readonly event: "end";
       readonly state: RelayAgentActivityAggregateState | null;
+      readonly alert?: ApnsLiveActivityAlert | null;
     })
   | (LiveActivityRequestBase & {
       readonly event: "start" | "update";
       readonly state: RelayAgentActivityAggregateState;
+      readonly alert?: ApnsLiveActivityAlert | null;
     });
+
+// An alert dict on an update/end makes it an "alerting" update: iOS wakes the
+// screen and plays the haptic (the Apple Sports score-change behavior) instead
+// of silently redrawing the activity.
+function liveActivityAlertPayload(alert: ApnsLiveActivityAlert) {
+  return {
+    alert: {
+      title: alert.title,
+      body: alert.body,
+      sound: "default",
+    },
+  };
+}
 
 function makeLiveActivityRequest(input: MakeLiveActivityRequestInput): ApnsLiveActivityRequest {
   const timestamp = input.nowEpochSeconds;
@@ -219,6 +234,7 @@ function makeLiveActivityRequest(input: MakeLiveActivityRequestInput): ApnsLiveA
           timestamp,
           event: "end",
           ...(input.state ? { "content-state": contentState(input.state) } : {}),
+          ...(input.alert ? liveActivityAlertPayload(input.alert) : {}),
           "dismissal-date": timestamp + DISMISS_AFTER_SECONDS,
         },
       },
@@ -229,7 +245,9 @@ function makeLiveActivityRequest(input: MakeLiveActivityRequestInput): ApnsLiveA
   return {
     token: input.token,
     event: input.event,
-    priority: input.event === "update" ? "5" : "10",
+    // Alerting updates must land immediately; routine redraws stay at the
+    // budget-friendly low priority.
+    priority: input.event === "update" && !input.alert ? "5" : "10",
     payload: {
       aps: {
         timestamp,
@@ -245,6 +263,7 @@ function makeLiveActivityRequest(input: MakeLiveActivityRequestInput): ApnsLiveA
               },
             }
           : {}),
+        ...(input.event === "update" && input.alert ? liveActivityAlertPayload(input.alert) : {}),
         "content-state": contentState(state),
         "stale-date": timestamp + STALE_AFTER_SECONDS,
       },

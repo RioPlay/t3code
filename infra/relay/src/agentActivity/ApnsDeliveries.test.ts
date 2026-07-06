@@ -1369,3 +1369,115 @@ describe("ApnsDeliveries", () => {
     );
   });
 });
+
+describe("live activity alert decisions", () => {
+  const preferences = {
+    liveActivitiesEnabled: true,
+    notificationsEnabled: true,
+    notifyOnApproval: true,
+    notifyOnInput: true,
+    notifyOnCompletion: true,
+    notifyOnFailure: true,
+  };
+
+  const attentionRow = {
+    ...aggregate.activities[0]!,
+    threadId: "thread-2" as RelayAgentActivityState["threadId"],
+    threadTitle: "Blocked thread",
+    phase: "waiting_for_approval" as const,
+    status: "Approval",
+  };
+
+  it("alerts when a thread newly enters an attention phase", () => {
+    const alert = ApnsDeliveries.alertForAttentionTransition({
+      previousAggregate: aggregate,
+      nextAggregate: {
+        ...aggregate,
+        activeCount: 2,
+        activities: [...aggregate.activities, attentionRow],
+      },
+      preferences,
+    });
+    expect(alert).toEqual({ title: "Blocked thread", body: "Approval: Project" });
+  });
+
+  it("stays silent when the attention phase was already delivered", () => {
+    const withAttention = {
+      ...aggregate,
+      activeCount: 2,
+      activities: [...aggregate.activities, attentionRow],
+    };
+    expect(
+      ApnsDeliveries.alertForAttentionTransition({
+        previousAggregate: withAttention,
+        nextAggregate: withAttention,
+        preferences,
+      }),
+    ).toBeNull();
+  });
+
+  it("stays silent without a delivered baseline so replays cannot buzz", () => {
+    expect(
+      ApnsDeliveries.alertForAttentionTransition({
+        previousAggregate: null,
+        nextAggregate: { ...aggregate, activities: [attentionRow] },
+        preferences,
+      }),
+    ).toBeNull();
+  });
+
+  it("honors the per-event notification switch for attention alerts", () => {
+    expect(
+      ApnsDeliveries.alertForAttentionTransition({
+        previousAggregate: aggregate,
+        nextAggregate: {
+          ...aggregate,
+          activeCount: 2,
+          activities: [...aggregate.activities, attentionRow],
+        },
+        preferences: { ...preferences, notifyOnApproval: false },
+      }),
+    ).toBeNull();
+  });
+
+  it("summarizes multiple newly blocked threads in one alert", () => {
+    const secondAttentionRow = {
+      ...attentionRow,
+      threadId: "thread-3" as RelayAgentActivityState["threadId"],
+      threadTitle: "Other blocked thread",
+      phase: "waiting_for_input" as const,
+      status: "Input",
+    };
+    const alert = ApnsDeliveries.alertForAttentionTransition({
+      previousAggregate: aggregate,
+      nextAggregate: {
+        ...aggregate,
+        activeCount: 3,
+        activities: [...aggregate.activities, attentionRow, secondAttentionRow],
+      },
+      preferences,
+    });
+    expect(alert).toEqual({
+      title: "2 agents need attention",
+      body: "Blocked thread, Other blocked thread",
+    });
+  });
+
+  it("alerts for a terminal aggregate and honors the completion switch", () => {
+    const terminalAggregate = {
+      ...aggregate,
+      activeCount: 0,
+      activities: [{ ...aggregate.activities[0]!, phase: "completed" as const, status: "Done" }],
+    };
+    expect(
+      ApnsDeliveries.alertForTerminalAggregate({ aggregate: terminalAggregate, preferences }),
+    ).toEqual({ title: "Thread", body: "Done: Project" });
+    expect(
+      ApnsDeliveries.alertForTerminalAggregate({
+        aggregate: terminalAggregate,
+        preferences: { ...preferences, notifyOnCompletion: false },
+      }),
+    ).toBeNull();
+    expect(ApnsDeliveries.alertForTerminalAggregate({ aggregate: null, preferences })).toBeNull();
+  });
+});

@@ -61,6 +61,7 @@ export class ApnsDeliveryQueue extends Context.Service<
       readonly bundleId?: string | null;
       readonly apsEnvironment?: "sandbox" | "production" | null;
       readonly aggregate: ApnsDeliveryJobPayload["aggregate"];
+      readonly alert?: ApnsDeliveryJobPayload["alert"];
     }) => Effect.Effect<RelayDeliveryResult, ApnsDeliveryQueueError>;
     readonly enqueuePushNotification: (input: {
       readonly userId: string;

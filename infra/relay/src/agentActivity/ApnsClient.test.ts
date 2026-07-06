@@ -96,6 +96,32 @@ describe("ApnsClient", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
+  it.effect("builds a high-priority alerting update payload when an alert is attached", () =>
+    Effect.gen(function* () {
+      const apns = yield* ApnsClient.ApnsClient;
+      const request = apns.makeLiveActivityRequest({
+        event: "update",
+        token: "token",
+        state,
+        alert: { title: "Thread", body: "Approval: Project" },
+        nowEpochSeconds: Math.floor(now.epochMilliseconds / 1_000),
+        nowIso: DateTime.formatIso(now),
+      });
+
+      expect(request.priority).toBe("10");
+      expect(request.payload).toMatchObject({
+        aps: {
+          event: "update",
+          alert: {
+            title: "Thread",
+            body: "Approval: Project",
+            sound: "default",
+          },
+        },
+      });
+    }).pipe(Effect.provide(TestLayer)),
+  );
+
   it.effect("builds an end payload with a dismissal date", () =>
     Effect.gen(function* () {
       const apns = yield* ApnsClient.ApnsClient;

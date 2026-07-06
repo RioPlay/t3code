@@ -26,6 +26,7 @@ import {
   ApnsDeliveryJobLiveActivityAggregateMissing,
   ApnsDeliveryJobPushNotificationMissing,
   ApnsDeliveryJobQueuePayloadInvalid,
+  type ApnsLiveActivityAlert,
   type ApnsNotificationPayload,
   SignedApnsDeliveryJob,
   isApnsDeliveryJobVerificationError,
@@ -55,11 +56,13 @@ type ChosenLiveActivityDelivery =
       readonly kind: "live_activity_start" | "live_activity_update";
       readonly token: string;
       readonly aggregate: RelayAgentActivityAggregateState;
+      readonly alert: ApnsLiveActivityAlert | null;
     }
   | {
       readonly kind: "live_activity_end";
       readonly token: string;
       readonly aggregate: RelayAgentActivityAggregateState | null;
+      readonly alert: ApnsLiveActivityAlert | null;
     };
 
 type ChosenPushNotificationDelivery = {
@@ -134,6 +137,85 @@ function aggregateNeedsAttention(aggregate: RelayAgentActivityAggregateState): b
   return aggregate.activities.some(
     (row) => row.phase === "waiting_for_approval" || row.phase === "waiting_for_input",
   );
+}
+
+function isAttentionPhase(phase: string): boolean {
+  return phase === "waiting_for_approval" || phase === "waiting_for_input";
+}
+
+// Honors the same per-event notification switches the push channel uses; a
+// missing/corrupt preferences blob only disables nothing (matching how the
+// liveActivitiesEnabled check treats it), since every registration writes one.
+function alertAllowedForPhase(
+  preferences: RelayAgentAwarenessPreferences | null,
+  phase: string,
+): boolean {
+  if (preferences === null) {
+    return true;
+  }
+  switch (phase) {
+    case "waiting_for_approval":
+      return preferences.notifyOnApproval;
+    case "waiting_for_input":
+      return preferences.notifyOnInput;
+    case "completed":
+      return preferences.notifyOnCompletion;
+    case "failed":
+      return preferences.notifyOnFailure;
+    default:
+      return false;
+  }
+}
+
+// Alert copy for an update whose aggregate contains threads that were NOT in an
+// attention phase in the previously delivered aggregate. A null previous
+// aggregate means there is no known baseline (fresh registration, replay after
+// data loss) — alerting there would buzz on reconnect, not on a transition.
+export function alertForAttentionTransition(input: {
+  readonly previousAggregate: RelayAgentActivityAggregateState | null;
+  readonly nextAggregate: RelayAgentActivityAggregateState;
+  readonly preferences: RelayAgentAwarenessPreferences | null;
+}): ApnsLiveActivityAlert | null {
+  if (input.previousAggregate === null) {
+    return null;
+  }
+  const previouslyAttention = new Set(
+    input.previousAggregate.activities
+      .filter((row) => isAttentionPhase(row.phase))
+      .map((row) => row.threadId),
+  );
+  const newlyAttention = input.nextAggregate.activities.filter(
+    (row) =>
+      isAttentionPhase(row.phase) &&
+      !previouslyAttention.has(row.threadId) &&
+      alertAllowedForPhase(input.preferences, row.phase),
+  );
+  const first = newlyAttention[0];
+  if (!first) {
+    return null;
+  }
+  if (newlyAttention.length === 1) {
+    return { title: first.threadTitle, body: `${first.status}: ${first.projectTitle}` };
+  }
+  return {
+    title: `${newlyAttention.length} agents need attention`,
+    body: newlyAttention.map((row) => row.threadTitle).join(", "),
+  };
+}
+
+// Alert copy for an end event carrying a terminal (Done/Failed) aggregate.
+export function alertForTerminalAggregate(input: {
+  readonly aggregate: RelayAgentActivityAggregateState | null;
+  readonly preferences: RelayAgentAwarenessPreferences | null;
+}): ApnsLiveActivityAlert | null {
+  const row = input.aggregate?.activities[0];
+  if (!row || (row.phase !== "completed" && row.phase !== "failed")) {
+    return null;
+  }
+  if (!alertAllowedForPhase(input.preferences, row.phase)) {
+    return null;
+  }
+  return { title: row.threadTitle, body: `${row.status}: ${row.projectTitle}` };
 }
 
 function shouldUpdateLiveActivity(input: {
@@ -220,6 +302,7 @@ function chooseLiveActivityDelivery(input: {
           kind: "live_activity_end",
           token: input.target.activity_push_token,
           aggregate: null,
+          alert: null,
         }
       : null;
   }
@@ -229,6 +312,7 @@ function chooseLiveActivityDelivery(input: {
           kind: "live_activity_end",
           token: input.target.activity_push_token,
           aggregate: input.aggregate,
+          alert: null,
         }
       : null;
   }
@@ -238,14 +322,16 @@ function chooseLiveActivityDelivery(input: {
           kind: "live_activity_start",
           token: input.target.push_to_start_token,
           aggregate: input.aggregate,
+          alert: null,
         }
       : null;
   }
   if (!input.target.activity_push_token) {
     return null;
   }
+  const previousAggregate = parseAggregate(input.target.last_aggregate_json);
   return shouldUpdateLiveActivity({
-    previousAggregate: parseAggregate(input.target.last_aggregate_json),
+    previousAggregate,
     nextAggregate: input.aggregate,
     lastDeliveryAt: input.target.last_live_activity_delivery_at,
     nowMs: input.nowMs,
@@ -254,6 +340,11 @@ function chooseLiveActivityDelivery(input: {
         kind: "live_activity_update",
         token: input.target.activity_push_token,
         aggregate: input.aggregate,
+        alert: alertForAttentionTransition({
+          previousAggregate,
+          nextAggregate: input.aggregate,
+          preferences,
+        }),
       }
     : "suppressed";
 }
@@ -422,10 +513,12 @@ export type SendLiveActivityDeliveryInput =
   | (SendLiveActivityDeliveryInputBase & {
       readonly kind: "live_activity_start" | "live_activity_update";
       readonly aggregate: RelayAgentActivityAggregateState;
+      readonly alert?: ApnsLiveActivityAlert | null;
     })
   | (SendLiveActivityDeliveryInputBase & {
       readonly kind: "live_activity_end";
       readonly aggregate: RelayAgentActivityAggregateState | null;
+      readonly alert?: ApnsLiveActivityAlert | null;
     });
 
 function makeLiveActivityDeliveryRequest(
@@ -449,6 +542,7 @@ function makeLiveActivityDeliveryRequest(
           ...base,
           event: deliveryEvent(input.kind),
           state: input.aggregate,
+          alert: input.alert ?? null,
         }),
       };
     case "live_activity_end":
@@ -459,6 +553,7 @@ function makeLiveActivityDeliveryRequest(
           ...base,
           event: "end",
           state: input.aggregate,
+          alert: input.alert ?? null,
         }),
       };
   }
@@ -789,6 +884,7 @@ export const make = Effect.gen(function* () {
             sourceJobId: payload.jobId,
             kind: payload.kind,
             aggregate: payload.aggregate,
+            alert: payload.alert ?? null,
           });
         case "live_activity_end":
           return sendLiveActivity({
@@ -802,6 +898,7 @@ export const make = Effect.gen(function* () {
             sourceJobId: payload.jobId,
             kind: payload.kind,
             aggregate: payload.aggregate,
+            alert: payload.alert ?? null,
           });
         case "push_notification":
           if (payload.notification === null) {
@@ -866,6 +963,23 @@ export const make = Effect.gen(function* () {
         });
         return result;
       }
+      const notification = notificationForAggregate({
+        target: input.target,
+        aggregate: input.aggregate,
+      });
+      // The end event doubles as the "task finished" moment. When a companion
+      // push notification is about to ring the device (below), the activity end
+      // stays silent; otherwise the end itself carries the alert so LA-only
+      // users still get the buzz.
+      const alert =
+        delivery.kind === "live_activity_end"
+          ? notification && input.target.push_token
+            ? null
+            : alertForTerminalAggregate({
+                aggregate: delivery.aggregate,
+                preferences: parsePreferences(input.target.preferences_json),
+              })
+          : delivery.alert;
       const result = yield* deliveryQueue.enqueueLiveActivity({
         userId: input.target.user_id,
         deviceId: input.target.device_id,
@@ -874,10 +988,7 @@ export const make = Effect.gen(function* () {
         bundleId: input.target.bundle_id,
         apsEnvironment: input.target.aps_environment,
         aggregate: delivery.aggregate,
-      });
-      const notification = notificationForAggregate({
-        target: input.target,
-        aggregate: input.aggregate,
+        alert,
       });
       if (delivery.kind === "live_activity_end" && notification && input.target.push_token) {
         yield* deliveryQueue.enqueuePushNotification({
