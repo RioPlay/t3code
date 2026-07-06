@@ -1668,7 +1668,10 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
     });
   };
 
-  const managedTunnelActive = primaryCloudLinkState.data?.managedTunnelActive ?? false;
+  // Older environment servers predate the managedTunnelActive field; for them a
+  // link always implies a managed tunnel, so fall back to `linked`.
+  const managedTunnelActive =
+    primaryCloudLinkState.data?.managedTunnelActive ?? primaryCloudLinkState.data?.linked ?? false;
   const publishAgentActivity = primaryCloudLinkState.data?.publishAgentActivity ?? false;
   const linked = primaryCloudLinkState.data?.linked ?? false;
   const disabledReason = !isSignedIn
@@ -1701,6 +1704,10 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
     const clerkToken = tokenResult.value;
     const wantsLink = desired.managedTunnel || desired.publish;
 
+    // A failure after this point may follow a partially applied mutation (e.g.
+    // the link succeeded but the preference update did not), so every exit —
+    // success or failure — refreshes the rendered state to whatever the server
+    // actually holds now.
     if (!wantsLink) {
       const unlinkResult = await unlinkPrimaryEnvironment({
         target,
@@ -1710,6 +1717,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
         if (!isAtomCommandInterrupted(unlinkResult)) {
           reportUpdateFailure(squashAtomCommandFailure(unlinkResult));
         }
+        primaryCloudLinkState.refresh();
         return false;
       }
     } else {
@@ -1727,6 +1735,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
           if (!isAtomCommandInterrupted(linkResult)) {
             reportUpdateFailure(squashAtomCommandFailure(linkResult));
           }
+          primaryCloudLinkState.refresh();
           return false;
         }
       }
@@ -1738,6 +1747,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
         if (!isAtomCommandInterrupted(prefResult)) {
           reportUpdateFailure(squashAtomCommandFailure(prefResult));
         }
+        primaryCloudLinkState.refresh();
         return false;
       }
     }
@@ -1755,12 +1765,20 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
     setIsUpdating(true);
     const ok = await reconcileCloudState({ managedTunnel: enabled, publish: publishAgentActivity });
     if (ok) {
+      // Turning the tunnel off while publishing stays on downgrades the link
+      // rather than removing it — say so instead of claiming an unlink.
       toastManager.add({
         type: "success",
-        title: enabled ? "T3 Connect linked" : "T3 Connect unlinked",
+        title: enabled
+          ? "T3 Connect linked"
+          : publishAgentActivity
+            ? "T3 Connect tunnel disabled"
+            : "T3 Connect unlinked",
         description: enabled
           ? "This environment is available through T3 Connect."
-          : "This environment is no longer available through T3 Connect.",
+          : publishAgentActivity
+            ? "The managed tunnel was removed. Agent activity publishing stays on."
+            : "This environment is no longer available through T3 Connect.",
       });
     }
     setIsUpdating(false);

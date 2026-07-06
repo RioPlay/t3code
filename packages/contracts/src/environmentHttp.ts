@@ -345,7 +345,8 @@ export const EnvironmentCloudLinkStateResult = Schema.Struct({
   // A managed Cloudflare tunnel is provisioned for this link. False for a
   // publish-only link (activity publishing without a relay-managed tunnel), so
   // clients can present the two capabilities as independent settings.
-  managedTunnelActive: Schema.Boolean,
+  // Optional so newer clients tolerate older environment servers.
+  managedTunnelActive: Schema.optional(Schema.Boolean),
   publishAgentActivity: Schema.Boolean,
 });
 export type EnvironmentCloudLinkStateResult = typeof EnvironmentCloudLinkStateResult.Type;

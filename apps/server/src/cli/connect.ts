@@ -514,6 +514,16 @@ const connectPublishCommand = Command.make("publish", {
           );
           return;
         }
+        // A link may already be desired (e.g. `t3 connect link` before the
+        // server's first start). Never downgrade it: a desired managed link
+        // also covers publishing, so only request a publish-only link when no
+        // link is pending at all.
+        if (yield* CliState.readCliDesiredCloudLink) {
+          yield* Console.log(
+            "A T3 Connect link is already pending. Start T3 to finish provisioning it; publishing starts once it links.",
+          );
+          return;
+        }
         yield* CliState.setCliDesiredCloudLink(true, "publish_only");
         yield* Console.log(
           "Restart T3 to finish authorizing this environment to publish (no managed tunnel is created).",

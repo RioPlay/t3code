@@ -109,6 +109,7 @@ const makeRequest = Effect.gen(function* () {
 function testLayer(input?: {
   readonly upsert?: EnvironmentLinks.EnvironmentLinks["Service"]["upsert"];
   readonly consume?: DpopProofs.DpopProofReplay["Service"]["consume"];
+  readonly deprovision?: ManagedEndpointProvider.ManagedEndpointProvider["Service"]["deprovision"];
 }) {
   return EnvironmentLinker.layer.pipe(
     Layer.provideMerge(RelayTokens.layer),
@@ -135,7 +136,7 @@ function testLayer(input?: {
           revokeForEnvironmentPublicKey: () => Effect.succeed(false),
         }),
         Layer.succeed(ManagedEndpointProvider.ManagedEndpointProvider, {
-          deprovision: () => Effect.void,
+          deprovision: input?.deprovision ?? (() => Effect.void),
           provision: () =>
             Effect.succeed({
               endpoint: {
@@ -175,6 +176,7 @@ describe("EnvironmentLinker", () => {
 
   it.effect("links a publish-only environment with a non-secure nominal endpoint", () => {
     let persistedEndpoint: string | null = null;
+    let deprovisionedEnvironmentId: string | null = null;
     return Effect.gen(function* () {
       const now = yield* DateTime.now;
       const expiresAt = DateTime.add(now, { minutes: 5 });
@@ -226,12 +228,19 @@ describe("EnvironmentLinker", () => {
       expect(result.environmentCredential).toBe("t3env_credential_secret");
       expect(result.endpointRuntime).toBeNull();
       expect(persistedEndpoint).toBe("http://127.0.0.1:3773/");
+      // Downgrading from a managed link must release the previously provisioned
+      // tunnel; nothing else cleans it up before a full unlink.
+      expect(deprovisionedEnvironmentId).toBe("env-link-test");
     }).pipe(
       Effect.provide(
         testLayer({
           upsert: (input) =>
             Effect.sync(() => {
               persistedEndpoint = input.endpoint.httpBaseUrl;
+            }),
+          deprovision: (input) =>
+            Effect.sync(() => {
+              deprovisionedEnvironmentId = input.environmentId;
             }),
         }),
       ),

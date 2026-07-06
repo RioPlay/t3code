@@ -61,13 +61,17 @@ export class AgentAwarenessOperationError extends Schema.TaggedErrorClass<AgentA
 
 const environmentConnections = new Map<EnvironmentId, SavedRemoteConnection>();
 const activityPushTokenListeners = new WeakSet<LiveActivity<AgentActivityProps>>();
-// Activity tokens the relay has already accepted this session. The payload is
-// just {deviceId, activityPushToken}, so re-registering an accepted token is a
-// pure no-op relay round-trip — and the refresh runs on sign-in, every app
-// foreground, and every environment-connection update, which spammed identical
-// registrations. Cleared on sign-out/identity change alongside the device
-// registration state.
-const registeredActivityPushTokens = new Set<string>();
+// Activity tokens the relay recently accepted, by acceptance time. The refresh
+// runs on sign-in, every app foreground, and every environment-connection
+// update, which arrive in bursts and spammed identical registrations. But the
+// registration is not a pure no-op: the relay replays the current aggregate to
+// this device on every accepted registration, and that replay is the
+// foreground reconciliation that repairs drifted or orphaned activities. So
+// dedupe only within a short window — bursts collapse to one request, while a
+// foreground after real time away still triggers a replay. Cleared on
+// sign-out/identity change alongside the device registration state.
+const ACTIVITY_TOKEN_REREGISTER_INTERVAL_MS = 60_000;
+const registeredActivityPushTokens = new Map<string, number>();
 let pushToStartSubscription: { remove: () => void } | null = null;
 let pushTokenSubscription: { remove: () => void } | null = null;
 let appStateSubscription: { remove: () => void } | null = null;
@@ -318,11 +322,20 @@ function registerDeviceWithRelay(
     // sign-out, so a device stays registered across launches without re-hitting
     // the relay every time the app opens.
     const identity = relayTokenProviderIdentity ?? "";
-    const signature = registrationSignature(body);
     const persisted = yield* Effect.tryPromise({
       try: () => loadAgentAwarenessRegistrationRecord(),
       catch: (cause) => cause,
     }).pipe(Effect.orElseSucceed(() => null));
+    // The push-to-start token only rides along on registrations triggered by a
+    // native token event; ones triggered by sign-in or app foreground omit it.
+    // Carry the last accepted token forward so its absence means "unchanged",
+    // not "cleared" — otherwise the signature alternates between the two
+    // trigger shapes and the skip below never fires.
+    const payload =
+      !body.pushToStartToken && persisted?.identity === identity && persisted.pushToStartToken
+        ? { ...body, pushToStartToken: persisted.pushToStartToken }
+        : body;
+    const signature = registrationSignature(payload);
     if (persisted && persisted.identity === identity && persisted.signature === signature) {
       setRegistrationStatus("registered");
       logRegistrationDebug("relay device registration skipped; already registered for account", {
@@ -337,11 +350,15 @@ function registerDeviceWithRelay(
     });
     yield* client.registerDevice({
       clerkToken: token,
-      payload: body,
+      payload,
     });
     setRegistrationStatus("registered");
     yield* Effect.promise(() =>
-      saveAgentAwarenessRegistrationRecord({ identity, signature }).catch((error: unknown) => {
+      saveAgentAwarenessRegistrationRecord({
+        identity,
+        signature,
+        ...(payload.pushToStartToken ? { pushToStartToken: payload.pushToStartToken } : {}),
+      }).catch((error: unknown) => {
         logRegistrationError("persist registration record failed", error);
       }),
     );
@@ -608,7 +625,9 @@ function ensurePushTokenListener(): void {
 // Re-registering activity tokens on foreground makes the relay replay the
 // current aggregate to this device, which updates content that drifted while
 // pushes could not be delivered and ends orphaned activities whose end push
-// never arrived.
+// never arrived. (Deduped by ACTIVITY_TOKEN_REREGISTER_INTERVAL_MS: rapid
+// foreground/sign-in bursts collapse to one registration, but returning after
+// real time away still replays.)
 function ensureAppStateListener(): void {
   if (appStateSubscription || !canRegisterRemoteLiveActivities()) {
     return;
@@ -712,6 +731,7 @@ export function __resetAgentAwarenessRemoteRegistrationForTest(): void {
   pendingDeviceRegistration = null;
   registrationStatus = "unknown";
   registrationStatusListeners.clear();
+  registeredActivityPushTokens.clear();
 }
 
 export function unregisterAgentAwarenessDeviceForCurrentUser(
@@ -799,7 +819,11 @@ function registerLiveActivityPushTokenValue(input: {
   readonly activityPushToken: string;
 }): Effect.Effect<boolean, unknown, ManagedRelay.ManagedRelayClient> {
   return Effect.gen(function* () {
-    if (registeredActivityPushTokens.has(input.activityPushToken)) {
+    const acceptedAt = registeredActivityPushTokens.get(input.activityPushToken);
+    if (
+      acceptedAt !== undefined &&
+      Date.now() - acceptedAt < ACTIVITY_TOKEN_REREGISTER_INTERVAL_MS
+    ) {
       return true;
     }
     const deviceId = yield* Effect.tryPromise({
@@ -815,7 +839,7 @@ function registerLiveActivityPushTokenValue(input: {
       activityPushToken: input.activityPushToken,
     });
     if (registered) {
-      registeredActivityPushTokens.add(input.activityPushToken);
+      registeredActivityPushTokens.set(input.activityPushToken, Date.now());
       logRegistrationDebug("live activity push token registered", {
         tokenSuffix: input.activityPushToken.slice(-8),
       });

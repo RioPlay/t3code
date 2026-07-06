@@ -228,6 +228,10 @@ export async function loadAgentAwarenessDeviceId(): Promise<string | null> {
 export interface AgentAwarenessRegistrationRecord {
   readonly identity: string;
   readonly signature: string;
+  // Last push-to-start token the relay accepted. Registrations triggered
+  // without a token event merge it back in so token absence never reads as a
+  // change (which would defeat the register-once skip every launch).
+  readonly pushToStartToken?: string;
 }
 
 // Remembers the account identity and payload signature the relay last accepted
@@ -245,7 +249,13 @@ export async function loadAgentAwarenessRegistrationRecord(): Promise<AgentAware
   ) {
     return null;
   }
-  return { identity: parsed.identity, signature: parsed.signature };
+  return {
+    identity: parsed.identity,
+    signature: parsed.signature,
+    ...(typeof parsed.pushToStartToken === "string" && parsed.pushToStartToken
+      ? { pushToStartToken: parsed.pushToStartToken }
+      : {}),
+  };
 }
 
 export async function saveAgentAwarenessRegistrationRecord(
