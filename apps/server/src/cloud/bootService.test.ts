@@ -49,7 +49,6 @@ const makeRecordingRunnerLayer = (
 const makeHost = (entry: string): BootService.BootServiceHost => ({
   execPath: "/usr/local/bin/node",
   cliEntryPath: entry,
-  cliVersion: "0.0.27",
 });
 
 const provideHostRefs = (home: string, platform: NodeJS.Platform = "linux") =>
@@ -83,10 +82,10 @@ it("renders a systemd unit with absolute paths and append-mode logging", () => {
     [
       "[Unit]",
       "Description=T3 Code server (T3 Connect)",
-      "After=network-online.target",
       "",
       "[Service]",
       "Type=simple",
+      "WorkingDirectory=%h",
       "Environment=T3CODE_HOME=/home/theo/.t3",
       "ExecStart=/usr/local/bin/node /home/theo/.t3/runtime/versions/0.0.27/node_modules/t3/dist/bin.mjs serve",
       "Restart=always",
@@ -101,16 +100,40 @@ it("renders a systemd unit with absolute paths and append-mode logging", () => {
   );
 });
 
-it("flags npx cache entry points as ephemeral", () => {
+it("quotes systemd values containing spaces and escapes percent specifiers", () => {
+  assert.equal(BootService.quoteSystemdValue("/plain/path"), "/plain/path");
+  assert.equal(BootService.quoteSystemdValue("/home/me/T3 Data"), '"/home/me/T3 Data"');
+  assert.equal(BootService.quoteSystemdValue("/opt/100%cpu"), "/opt/100%%cpu");
+
+  const unit = BootService.renderBootServiceUnit({
+    nodePath: "/home/me/my tools/node",
+    t3EntryPath: "/home/me/T3 Data/bin.mjs",
+    baseDir: "/home/me/T3 Data",
+    logPath: "/home/me/logs/boot.log",
+    unitPath: "/home/me/.config/systemd/user/t3code.service",
+  });
+  assert.include(unit, 'ExecStart="/home/me/my tools/node" "/home/me/T3 Data/bin.mjs" serve');
+  assert.include(unit, 'Environment=T3CODE_HOME="/home/me/T3 Data"');
+});
+
+it("flags package-manager cache entry points as ephemeral", () => {
   assert.isTrue(
-    BootService.isEphemeralNpxEntry("/home/theo/.npm/_npx/abc123/node_modules/t3/dist/bin.mjs"),
+    BootService.isEphemeralCacheEntry("/home/theo/.npm/_npx/abc123/node_modules/t3/dist/bin.mjs"),
   );
   assert.isTrue(
-    BootService.isEphemeralNpxEntry("C:\\Users\\theo\\AppData\\npm-cache\\_npx\\abc\\bin.mjs"),
+    BootService.isEphemeralCacheEntry("C:\\Users\\theo\\AppData\\npm-cache\\_npx\\abc\\bin.mjs"),
   );
-  assert.isFalse(BootService.isEphemeralNpxEntry("/usr/local/lib/node_modules/t3/dist/bin.mjs"));
+  assert.isTrue(
+    BootService.isEphemeralCacheEntry(
+      "/home/theo/.cache/pnpm/dlx/abc/node_modules/t3/dist/bin.mjs",
+    ),
+  );
+  assert.isTrue(
+    BootService.isEphemeralCacheEntry("/home/theo/.bun/install/cache/t3@0.0.27/dist/bin.mjs"),
+  );
+  assert.isFalse(BootService.isEphemeralCacheEntry("/usr/local/lib/node_modules/t3/dist/bin.mjs"));
   assert.isFalse(
-    BootService.isEphemeralNpxEntry(
+    BootService.isEphemeralCacheEntry(
       "/home/theo/.t3/runtime/versions/0.0.27/node_modules/t3/dist/bin.mjs",
     ),
   );
@@ -137,7 +160,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         [
           "systemctl --user daemon-reload",
           "systemctl --user enable --now t3code.service",
-          "loginctl enable-linger theo",
+          "loginctl enable-linger",
         ],
       );
 
@@ -150,12 +173,17 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       assert.include(unit, `Environment=T3CODE_HOME=${dirs.baseDir}`);
 
       const status = yield* service.status;
+      assert.isTrue(status.supported);
       assert.isTrue(status.installed);
+      assert.isTrue(status.current);
 
-      yield* service.uninstall;
+      const removed = yield* service.uninstall;
+      assert.isTrue(removed);
       assert.isFalse(NodeFS.existsSync(unitPath));
       const statusAfter = yield* service.status;
       assert.isFalse(statusAfter.installed);
+      const removedAgain = yield* service.uninstall;
+      assert.isFalse(removedAgain);
     }),
   );
 
@@ -181,6 +209,56 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         command: "npm",
         args: ["install", "--prefix", runtimeDir, "--no-fund", "--no-audit", "t3@0.0.27"],
       });
+      // Success is recorded via a sentinel so interrupted installs re-run.
+      assert.isTrue(NodeFS.existsSync(NodePath.join(runtimeDir, ".install-complete")));
+    }),
+  );
+
+  it.effect("cleans up and fails when the pinned runtime install fails", () =>
+    Effect.gen(function* () {
+      const dirs = makeTestDirs();
+      const commands: Array<RecordedCommand> = [];
+      const service = yield* BootService.make({
+        baseDir: dirs.baseDir,
+        logsDir: dirs.logsDir,
+        cliVersion: "0.0.27",
+        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/t3/dist/bin.mjs"),
+      }).pipe(
+        Effect.provide(makeRecordingRunnerLayer(commands, { failCommand: "npm" })),
+        provideHostRefs(dirs.home),
+      );
+
+      const error = yield* service.install.pipe(Effect.flip);
+      assert.isTrue(isCommandError(error));
+      const runtimeDir = NodePath.join(dirs.baseDir, "runtime", "versions", "0.0.27");
+      // The half-installed tree must not be reused by the next attempt.
+      assert.isFalse(NodeFS.existsSync(runtimeDir));
+      assert.isFalse(NodeFS.existsSync(NodePath.join(runtimeDir, ".install-complete")));
+    }),
+  );
+
+  it.effect("reports an installed-but-stale unit so connect can offer a repair", () =>
+    Effect.gen(function* () {
+      const dirs = makeTestDirs();
+      const commands: Array<RecordedCommand> = [];
+      const service = yield* BootService.make({
+        baseDir: dirs.baseDir,
+        logsDir: dirs.logsDir,
+        cliVersion: "0.0.27",
+        host: makeHost("/usr/local/lib/node_modules/t3/dist/bin.mjs"),
+      }).pipe(Effect.provide(makeRecordingRunnerLayer(commands)), provideHostRefs(dirs.home));
+
+      const unitDir = NodePath.join(dirs.home, ".config", "systemd", "user");
+      NodeFS.mkdirSync(unitDir, { recursive: true });
+      NodeFS.writeFileSync(
+        NodePath.join(unitDir, "t3code.service"),
+        "[Service]\nExecStart=/old/node /old/t3 serve\n",
+      );
+
+      const status = yield* service.status;
+      assert.isTrue(status.supported);
+      assert.isTrue(status.installed);
+      assert.isFalse(status.current);
     }),
   );
 
@@ -204,6 +282,10 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       assert.isFalse(
         NodeFS.existsSync(NodePath.join(dirs.home, ".config", "systemd", "user", "t3code.service")),
       );
+
+      const status = yield* service.status;
+      assert.isFalse(status.supported);
+      assert.isFalse(status.installed);
     }),
   );
 

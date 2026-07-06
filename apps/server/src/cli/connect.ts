@@ -5,6 +5,7 @@ import {
   type RelayClientInstallProgressStage,
 } from "@t3tools/contracts";
 import { RelayOkResponse } from "@t3tools/contracts/relay";
+import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
 import * as RelayClient from "@t3tools/shared/relayClient";
 import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
 import * as Cause from "effect/Cause";
@@ -59,8 +60,9 @@ const pasteFlag = Flag.boolean("paste").pipe(
  * Inside an SSH session there is no local browser to complete the loopback
  * OAuth callback, so the paste-code flow is the only one that can work.
  */
-const detectHeadlessSession = Effect.sync(
-  () => process.env.SSH_CONNECTION !== undefined || process.env.SSH_TTY !== undefined,
+const detectHeadlessSession = Effect.map(
+  HostProcessEnvironment,
+  (env) => env.SSH_CONNECTION !== undefined || env.SSH_TTY !== undefined,
 );
 
 const promptForPastedCode = ({ authorizeUrl, validate }: CliTokenManager.PasteCodePromptInput) =>
@@ -79,7 +81,15 @@ const authorizeCli = Effect.fn("cloud.cli.authorize")(function* (options: {
     yield* tokens.get;
     return;
   }
-  const existing = yield* tokens.getExisting;
+  // A stored credential whose refresh fails (revoked, expired grant) must
+  // fall through to a fresh paste login, not dead-end the command.
+  const existing = yield* tokens.getExisting.pipe(
+    Effect.catchTag("CloudCliCredentialRefreshError", () =>
+      Console.log(
+        "The stored T3 Connect credential could not be refreshed; signing in again.",
+      ).pipe(Effect.as(Option.none())),
+    ),
+  );
   if (Option.isSome(existing)) {
     return;
   }
@@ -351,18 +361,20 @@ const disconnectCloud = Effect.fn("cloud.cli.disconnect")(function* (options: {
     const tokens = yield* CliTokenManager.CloudCliTokenManager;
     yield* tokens.clear;
 
+    // uninstall itself no-ops when nothing is installed (and on non-Linux),
+    // so no status pre-check that could mask a real removal failure.
     const bootService = yield* BootService.BootService;
-    const { installed } = yield* bootService.status.pipe(
-      Effect.orElseSucceed(() => ({ installed: false })),
-    );
-    if (installed) {
-      yield* bootService.uninstall.pipe(
-        Effect.tap(Console.log("Removed the T3 Code background service.")),
-        Effect.catch((error) =>
-          Console.warn(`Could not remove the background service: ${error.message}`),
+    yield* bootService.uninstall.pipe(
+      Effect.tap((removed) =>
+        removed ? Console.log("Removed the T3 Code background service.") : Effect.void,
+      ),
+      Effect.catchTag("BootServiceUnsupportedError", () => Effect.succeed(false)),
+      Effect.catch((error) =>
+        Console.warn(`Could not remove the background service: ${error.message}`).pipe(
+          Effect.as(false),
         ),
-      );
-    }
+      ),
+    );
   }
 
   yield* reportCloudDisconnectResults({
@@ -537,16 +549,22 @@ const connectLogoutCommand = Command.make("logout", {
 
 const offerBootService = Effect.gen(function* () {
   const bootService = yield* BootService.BootService;
-  const { installed } = yield* bootService.status;
-  if (installed) {
+  const { supported, installed, current } = yield* bootService.status;
+  if (!supported) {
+    // Don't prompt for something that can only fail; background setup is
+    // Linux/systemd-only for now.
+    return false;
+  }
+  if (installed && current) {
     yield* Console.log("T3 Code is already set up to run in the background on this machine.");
     return true;
   }
   const wanted = yield* Prompt.run(
     Prompt.confirm({
-      message:
-        "Run T3 Code in the background whenever this machine boots? " +
-        "It stays reachable through T3 Connect even after you log out.",
+      message: installed
+        ? "The installed T3 Code background service is from an older setup. Update it now?"
+        : "Run T3 Code in the background whenever this machine boots? " +
+          "It stays reachable through T3 Connect even after you log out.",
       initial: true,
     }),
   );
@@ -572,10 +590,21 @@ export const connectCommand = Command.make("connect", {
         }
         yield* Console.log("\nConnected!");
 
+        // Connect itself already succeeded; a boot-service failure must not
+        // fail the command, just tell the user what happened and move on.
         const background = yield* offerBootService.pipe(
-          Effect.catchTag("BootServiceUnsupportedError", (error) =>
-            Console.log(`Skipping background setup: ${error.message}`).pipe(Effect.as(false)),
-          ),
+          Effect.catchTags({
+            BootServiceUnsupportedError: (error) =>
+              Console.log(`Skipping background setup: ${error.message}`).pipe(Effect.as(false)),
+            BootServiceCommandError: (error) =>
+              Console.warn(`Background setup did not finish: ${error.message}`).pipe(
+                Effect.as(false),
+              ),
+            BootServiceInstallError: (error) =>
+              Console.warn(`Background setup did not finish: ${error.message}`).pipe(
+                Effect.as(false),
+              ),
+          }),
         );
         yield* Console.log(
           background

@@ -1,19 +1,15 @@
 import {
   buildConnectClerkAuthorizeUrl,
-  CONNECT_CALLBACK_PATH,
+  connectCallbackUrl,
   CONNECT_OAUTH_SCOPES,
-  readConnectAuthorizeRequest,
   type ConnectAuthorizeRequest,
 } from "@t3tools/shared/connectAuth";
 import { clerkFrontendApiUrlFromPublishableKey } from "@t3tools/shared/relayAuth";
 
-import { resolveCloudPublicConfig } from "./publicConfig";
+import { isHostedStaticApp } from "../hostedPairing";
+import { hasCloudPublicConfig, resolveCloudPublicConfig, trimNonEmpty } from "./publicConfig";
 
 const CONNECT_CLI_AUTH_STATE_STORAGE_KEY = "t3code-connect-cli-auth-state";
-
-function trimNonEmpty(value: string | undefined): string | null {
-  return value?.trim() || null;
-}
 
 export function resolveConnectCliOAuthClientId(): string | null {
   return trimNonEmpty(import.meta.env.VITE_CLERK_CLI_OAUTH_CLIENT_ID as string | undefined);
@@ -25,10 +21,13 @@ export function hasConnectCliAuthConfig(): boolean {
   );
 }
 
-export function readConnectCliAuthorizeRequest(
-  url: URL = new URL(window.location.href),
-): ConnectAuthorizeRequest | null {
-  return readConnectAuthorizeRequest(url);
+/**
+ * Gate for the /connect routes: the CLI handshake only exists on the hosted
+ * deployment (the same bundle ships inside local instances) and needs the
+ * Clerk CLI OAuth client configured at build time.
+ */
+export function connectCliAuthRoutesEnabled(): boolean {
+  return isHostedStaticApp() && hasCloudPublicConfig() && hasConnectCliAuthConfig();
 }
 
 /**
@@ -48,7 +47,7 @@ export function buildConnectCliClerkAuthorizeUrl(
   return buildConnectClerkAuthorizeUrl({
     authorizationEndpoint: `${clerkFrontendApiUrlFromPublishableKey(clerkPublishableKey)}/oauth/authorize`,
     clientId,
-    redirectUri: new URL(CONNECT_CALLBACK_PATH, currentOrigin).toString(),
+    redirectUri: connectCallbackUrl(currentOrigin),
     scopes: CONNECT_OAUTH_SCOPES,
     state: request.state,
     challenge: request.challenge,
@@ -64,11 +63,15 @@ export function rememberConnectCliAuthState(state: string): void {
   }
 }
 
-export function consumeConnectCliAuthState(): string | null {
+/**
+ * Read-only on purpose: this runs during render, where a removal would be
+ * consumed by React's double-invoked/discarded renders (StrictMode) and
+ * silently disable the state check. The value is not a secret and is
+ * overwritten by the next /connect visit.
+ */
+export function readConnectCliAuthState(): string | null {
   try {
-    const state = window.sessionStorage.getItem(CONNECT_CLI_AUTH_STATE_STORAGE_KEY);
-    window.sessionStorage.removeItem(CONNECT_CLI_AUTH_STATE_STORAGE_KEY);
-    return state;
+    return window.sessionStorage.getItem(CONNECT_CLI_AUTH_STATE_STORAGE_KEY);
   } catch {
     return null;
   }

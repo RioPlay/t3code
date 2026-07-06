@@ -1,4 +1,4 @@
-import { CONNECT_OAUTH_SCOPES } from "@t3tools/shared/connectAuth";
+import { CONNECT_OAUTH_SCOPES, DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";
 import { clerkFrontendApiUrlFromPublishableKey } from "@t3tools/shared/relayAuth";
 import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
 import * as Config from "effect/Config";
@@ -17,7 +17,6 @@ declare const __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_TOKEN__: string | undefine
 
 const CLOUD_CLI_OAUTH_REDIRECT_URI = "http://127.0.0.1:34338/callback";
 const CLOUD_CLI_OAUTH_SCOPES = CONNECT_OAUTH_SCOPES;
-const DEFAULT_HOSTED_APP_URL = "https://app.t3.codes";
 
 function validateRelayUrl(value: string) {
   const relayUrl = normalizeSecureRelayUrl(value);
@@ -107,9 +106,9 @@ export const relayUrlConfig = makeRelayUrlConfig();
  * machines. Overridable so staging/nightly builds can point their CLIs at a
  * matching hosted deployment.
  */
-export const hostedAppUrlConfig = Config.nonEmptyString("T3CODE_HOSTED_APP_URL").pipe(
-  Config.withDefault(DEFAULT_HOSTED_APP_URL),
-  Config.map((value) => value.trim()),
+export const hostedAppUrlConfig = makePublicValueConfig(
+  "T3CODE_HOSTED_APP_URL",
+  DEFAULT_HOSTED_APP_URL,
 );
 
 function makePublicValueConfig(name: string, fallback: string) {

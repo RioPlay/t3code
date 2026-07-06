@@ -23,8 +23,9 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 
 import {
   buildConnectAuthorizeRequestUrl,
+  buildConnectClerkAuthorizeUrl,
+  checkConnectAuthCode,
   connectCallbackUrl,
-  parseConnectAuthCode,
 } from "@t3tools/shared/connectAuth";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
@@ -184,23 +185,22 @@ export const pasteCodeLogin = Effect.fn("cloud.cli_token.paste_code_login")(func
   const pasted = yield* promptForCode({
     authorizeUrl: buildConnectAuthorizeRequestUrl({ hostedAppUrl, state, challenge }),
     validate: (value) => {
-      const parsed = parseConnectAuthCode(value);
-      if (parsed === null) {
-        return Effect.fail("That does not look like a T3 Connect code. Copy the full code.");
-      }
-      if (parsed.state !== state) {
-        return Effect.fail(
-          "That code belongs to a different connect request. Open the URL above and try again.",
-        );
-      }
-      return Effect.succeed(value);
+      const checked = checkConnectAuthCode(value, state);
+      return typeof checked === "string" ? Effect.fail(checked) : Effect.succeed(value);
     },
-  });
-  const authCode = parseConnectAuthCode(pasted);
-  if (authCode === null || authCode.state !== state) {
-    return yield* new CloudCliAuthorizationError({
-      cause: "Pasted code did not match this connect request.",
-    });
+  }).pipe(
+    // Clerk authorization codes expire on this horizon anyway; matching the
+    // loopback flow's timeout turns an abandoned prompt into a clear error.
+    Effect.timeout(CLOUD_CLI_OAUTH_CALLBACK_TIMEOUT),
+    Effect.catchTag("TimeoutError", (cause) =>
+      Effect.fail(new CloudCliAuthorizationTimeoutError({ cause })),
+    ),
+  );
+  // promptForCode is caller-supplied, so re-check the returned value rather
+  // than trusting that the prompt ran validate.
+  const authCode = checkConnectAuthCode(pasted, state);
+  if (typeof authCode === "string") {
+    return yield* new CloudCliAuthorizationError({ cause: authCode });
   }
 
   return yield* exchangeToken(metadata, {
@@ -213,7 +213,14 @@ export const pasteCodeLogin = Effect.fn("cloud.cli_token.paste_code_login")(func
 });
 
 export const make = Effect.gen(function* () {
-  const services = yield* Effect.context<Crypto.Crypto | HttpClient.HttpClient>();
+  // Capture exactly the services the login/refresh flows need at build time
+  // (matching the pre-paste-flow behavior of capturing the instances), not
+  // the whole ambient context.
+  const crypto = yield* Crypto.Crypto;
+  const httpClient = yield* HttpClient.HttpClient;
+  const services = Context.make(Crypto.Crypto, crypto).pipe(
+    Context.add(HttpClient.HttpClient, httpClient),
+  );
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const semaphore = yield* Semaphore.make(1);
   const persist = Effect.fn("cloud.cli_token.persist")(function* (token: PersistedToken) {
@@ -281,15 +288,15 @@ export const make = Effect.gen(function* () {
       ),
       Layer.build,
     );
-    const authorizationUrl = new URL(metadata.authorizationEndpoint);
-    authorizationUrl.searchParams.set("client_id", metadata.clientId);
-    authorizationUrl.searchParams.set("redirect_uri", metadata.redirectUri);
-    authorizationUrl.searchParams.set("response_type", "code");
-    authorizationUrl.searchParams.set("scope", metadata.scopes.join(" "));
-    authorizationUrl.searchParams.set("state", state);
-    authorizationUrl.searchParams.set("code_challenge", challenge);
-    authorizationUrl.searchParams.set("code_challenge_method", "S256");
-    yield* Console.log(`Open this URL to authorize T3 Connect:\n${authorizationUrl.toString()}\n`);
+    const authorizationUrl = buildConnectClerkAuthorizeUrl({
+      authorizationEndpoint: metadata.authorizationEndpoint,
+      clientId: metadata.clientId,
+      redirectUri: metadata.redirectUri,
+      scopes: metadata.scopes,
+      state,
+      challenge,
+    });
+    yield* Console.log(`Open this URL to authorize T3 Connect:\n${authorizationUrl}\n`);
     const code = yield* Deferred.await(callback).pipe(
       Effect.timeout(CLOUD_CLI_OAUTH_CALLBACK_TIMEOUT),
       Effect.catchTag("TimeoutError", (cause) =>

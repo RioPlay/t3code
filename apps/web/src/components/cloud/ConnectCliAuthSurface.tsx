@@ -1,36 +1,16 @@
 import { useAuth, useClerk, useUser } from "@clerk/react";
-import { encodeConnectAuthCode } from "@t3tools/shared/connectAuth";
+import { encodeConnectAuthCode, readConnectAuthorizeRequest } from "@t3tools/shared/connectAuth";
 import { useEffect, useMemo, useState } from "react";
 
-import { APP_DISPLAY_NAME } from "../../branding";
 import {
   buildConnectCliClerkAuthorizeUrl,
-  consumeConnectCliAuthState,
-  readConnectCliAuthorizeRequest,
+  readConnectCliAuthState,
   readConnectCliCallbackResult,
   rememberConnectCliAuthState,
 } from "../../cloud/connectCliAuth";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { AuthSurfaceShell } from "../auth/AuthSurfaceShell";
 import { Button } from "../ui/button";
-
-function ConnectCliAuthShell({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground sm:px-6">
-      <div className="pointer-events-none absolute inset-0 opacity-80">
-        <div className="absolute inset-x-0 top-0 h-44 bg-[radial-gradient(44rem_16rem_at_top,color-mix(in_srgb,var(--color-emerald-500)_14%,transparent),transparent)]" />
-        <div className="absolute inset-y-0 left-0 w-72 bg-[radial-gradient(28rem_18rem_at_left,color-mix(in_srgb,var(--color-sky-500)_10%,transparent),transparent)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(145deg,color-mix(in_srgb,var(--background)_90%,var(--color-black))_0%,var(--background)_55%)]" />
-      </div>
-
-      <section className="relative w-full max-w-xl rounded-2xl border border-border/80 bg-card/90 p-6 shadow-2xl shadow-black/20 backdrop-blur-md sm:p-8">
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-          {APP_DISPLAY_NAME}
-        </p>
-        {children}
-      </section>
-    </div>
-  );
-}
 
 function ConnectCliAuthMessage({
   title,
@@ -58,7 +38,7 @@ const invalidLinkMessage = {
  * forwards the CLI's PKCE request to Clerk's authorize endpoint.
  */
 export function ConnectCliAuthorizeSurface() {
-  const request = useMemo(() => readConnectCliAuthorizeRequest(), []);
+  const request = useMemo(() => readConnectAuthorizeRequest(new URL(window.location.href)), []);
   const clerk = useClerk();
   const { isLoaded, isSignedIn } = useAuth();
   const [redirecting, setRedirecting] = useState(false);
@@ -82,14 +62,14 @@ export function ConnectCliAuthorizeSurface() {
 
   if (!request) {
     return (
-      <ConnectCliAuthShell>
+      <AuthSurfaceShell>
         <ConnectCliAuthMessage {...invalidLinkMessage} />
-      </ConnectCliAuthShell>
+      </AuthSurfaceShell>
     );
   }
 
   return (
-    <ConnectCliAuthShell>
+    <AuthSurfaceShell>
       <ConnectCliAuthMessage
         title="Connecting your terminal"
         description={
@@ -98,7 +78,17 @@ export function ConnectCliAuthorizeSurface() {
             : "Sign in to continue authorizing T3 Connect for your CLI."
         }
       />
-    </ConnectCliAuthShell>
+      {isLoaded && !isSignedIn ? (
+        <div className="mt-6">
+          <Button
+            type="button"
+            onClick={() => clerk.openSignIn({ forceRedirectUrl: window.location.href })}
+          >
+            Sign in
+          </Button>
+        </div>
+      ) : null}
+    </AuthSurfaceShell>
   );
 }
 
@@ -108,18 +98,18 @@ export function ConnectCliAuthorizeSurface() {
  */
 export function ConnectCliCallbackSurface() {
   const result = useMemo(() => readConnectCliCallbackResult(), []);
-  const expectedState = useMemo(() => consumeConnectCliAuthState(), []);
+  const expectedState = useMemo(() => readConnectCliAuthState(), []);
   const { user } = useUser();
   const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "authentication code" });
 
   if (!result) {
     return (
-      <ConnectCliAuthShell>
+      <AuthSurfaceShell>
         <ConnectCliAuthMessage
           title="Authorization did not complete"
           description="No authorization code was returned. Re-run `t3 connect` in your terminal and try again."
         />
-      </ConnectCliAuthShell>
+      </AuthSurfaceShell>
     );
   }
 
@@ -127,12 +117,12 @@ export function ConnectCliCallbackSurface() {
   // state parameter exists to stop; refuse to display a code for it.
   if (expectedState !== null && expectedState !== result.state) {
     return (
-      <ConnectCliAuthShell>
+      <AuthSurfaceShell>
         <ConnectCliAuthMessage
           title="This code belongs to a different request"
           description="The authorization response does not match the connect request this browser started. Re-run `t3 connect` in your terminal and open the freshly printed URL."
         />
-      </ConnectCliAuthShell>
+      </AuthSurfaceShell>
     );
   }
 
@@ -140,7 +130,7 @@ export function ConnectCliCallbackSurface() {
   const authCode = encodeConnectAuthCode(result);
 
   return (
-    <ConnectCliAuthShell>
+    <AuthSurfaceShell>
       <ConnectCliAuthMessage
         title="Almost connected"
         description={
@@ -166,6 +156,6 @@ export function ConnectCliCallbackSurface() {
         Only paste this code into a terminal session you started yourself. Anyone holding it can
         link their machine to your T3 Connect account while it is valid.
       </p>
-    </ConnectCliAuthShell>
+    </AuthSurfaceShell>
   );
 }
