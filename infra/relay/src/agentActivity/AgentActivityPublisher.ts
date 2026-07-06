@@ -119,6 +119,16 @@ export const make = Effect.gen(function* () {
         terminalState: null,
         nowMs: now.epochMilliseconds,
       });
+      // A null aggregate is ambiguous while non-terminal rows still exist:
+      // they may belong to a dead environment, or to a healthy long-running
+      // agent whose meaningful state (and therefore updatedAt) has not changed
+      // within the TTL. Sending in that case would end a possibly-healthy Live
+      // Activity on every foreground, so replay only delivers when live rows
+      // remain or the rows are truly gone (the thread ended and its end push
+      // may have been lost).
+      if (aggregate === null && activeStates.some((state) => !isTerminalPhase(state))) {
+        return null;
+      }
       return yield* apnsDeliveries.sendForTarget({
         target,
         aggregate,

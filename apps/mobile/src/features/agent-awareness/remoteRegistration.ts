@@ -186,7 +186,11 @@ export function setAgentAwarenessRelayTokenProvider(
     refreshActiveLiveActivityRemoteRegistration(),
     "active live activity registration after cloud sign-in failed",
   );
-  if (isExistingIdentity) {
+  // An unchanged identity only skips re-registration when the previous attempt
+  // actually reached the relay; a failed or stalled attempt must retry the next
+  // time the auth effect re-runs, or the device stays unregistered until an
+  // unrelated event (token rotation, environment link) happens to enqueue one.
+  if (isExistingIdentity && registrationStatus === "registered") {
     return;
   }
   enqueueDeviceRegistration({}, "device registration after cloud sign-in failed");
