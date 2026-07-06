@@ -535,6 +535,48 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     }).pipe(Effect.provide(relayTestLayer));
   });
 
+  it.effect("keeps the registered status when a stale concurrent attempt fails", () => {
+    const fetchMock = vi.fn((request: RequestInfo | URL) => {
+      const url = request instanceof Request ? request.url : String(request);
+      return Promise.resolve(
+        Response.json(
+          url.endsWith("/v1/client/dpop-token")
+            ? {
+                access_token: "relay-dpop-token",
+                issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+                token_type: "DPoP",
+                expires_in: 300,
+                scope: "mobile:registration",
+              }
+            : { ok: true },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    Constants.expoConfig!.extra = {
+      relay: {
+        url: "https://relay.example.test/",
+      },
+    };
+
+    // Sign-in enqueues a registration attempt that stays parked in the
+    // background queue while the direct refresh below runs.
+    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
+
+    return Effect.gen(function* () {
+      yield* refreshAgentAwarenessRegistration();
+      expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
+
+      // The queued sign-in attempt now fails; its stale failure must not
+      // overwrite the registration the relay already accepted.
+      vi.mocked(loadOrCreateAgentAwarenessDeviceId).mockRejectedValueOnce(
+        new Error("device id unavailable"),
+      );
+      yield* runBackgroundOperations();
+      expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
+    }).pipe(Effect.provide(relayTestLayer));
+  });
+
   it("clears registration status on cloud sign-out", () => {
     setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
     setAgentAwarenessRelayTokenProvider(null);

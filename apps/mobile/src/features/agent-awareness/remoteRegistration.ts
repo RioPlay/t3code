@@ -74,6 +74,13 @@ export type AgentAwarenessRegistrationStatus = "unknown" | "pending" | "register
 let registrationStatus: AgentAwarenessRegistrationStatus = "unknown";
 const registrationStatusListeners = new Set<() => void>();
 
+// Registration runs both through the background queue and directly via
+// refreshAgentAwarenessRegistration, so attempts can overlap. Counting relay
+// acceptances lets a failing attempt detect that a concurrent attempt already
+// succeeded while it was in flight, so a stale failure cannot overwrite a
+// registration the relay accepted.
+let registrationSuccessCount = 0;
+
 function setRegistrationStatus(next: AgentAwarenessRegistrationStatus): void {
   if (registrationStatus === next) {
     return;
@@ -82,6 +89,18 @@ function setRegistrationStatus(next: AgentAwarenessRegistrationStatus): void {
   for (const listener of registrationStatusListeners) {
     listener();
   }
+}
+
+function markRegistrationSucceeded(): void {
+  registrationSuccessCount++;
+  setRegistrationStatus("registered");
+}
+
+function markRegistrationFailed(successCountAtAttemptStart: number): void {
+  if (registrationSuccessCount !== successCountAtAttemptStart) {
+    return;
+  }
+  setRegistrationStatus("failed");
 }
 
 export function getAgentAwarenessRegistrationStatus(): AgentAwarenessRegistrationStatus {
@@ -316,7 +335,7 @@ function registerDeviceWithRelay(
       catch: (cause) => cause,
     }).pipe(Effect.orElseSucceed(() => null));
     if (persisted && persisted.identity === identity && persisted.signature === signature) {
-      setRegistrationStatus("registered");
+      markRegistrationSucceeded();
       logRegistrationDebug("relay device registration skipped; already registered for account", {
         expectedGeneration,
       });
@@ -331,7 +350,7 @@ function registerDeviceWithRelay(
       clerkToken: token,
       payload: body,
     });
-    setRegistrationStatus("registered");
+    markRegistrationSucceeded();
     yield* Effect.promise(() =>
       saveAgentAwarenessRegistrationRecord({ identity, signature }).catch((error: unknown) => {
         logRegistrationError("persist registration record failed", error);
@@ -466,11 +485,12 @@ function startPendingDeviceRegistration(): void {
   };
   activeDeviceRegistration = registration;
   registration.operation = (async () => {
+    const successCountAtStart = registrationSuccessCount;
     const result = await settleAsyncResult(() =>
       runtime.runPromiseExit(registerDevice(next.input, generation)),
     );
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-      setRegistrationStatus("failed");
+      markRegistrationFailed(successCountAtStart);
       logRegistrationError(next.context, squashAtomCommandFailure(result));
     }
     logRegistrationDebug("device registration finished", { generation });
@@ -675,14 +695,17 @@ export function refreshAgentAwarenessRegistration(): Effect.Effect<
   never,
   ManagedRelay.ManagedRelayClient
 > {
-  return registerDeviceForCurrentUser().pipe(
-    Effect.catch((error) =>
-      Effect.sync(() => {
-        setRegistrationStatus("failed");
-        logRegistrationError("device registration refresh failed", error);
-      }),
-    ),
-  );
+  return Effect.suspend(() => {
+    const successCountAtStart = registrationSuccessCount;
+    return registerDeviceForCurrentUser().pipe(
+      Effect.catch((error) =>
+        Effect.sync(() => {
+          markRegistrationFailed(successCountAtStart);
+          logRegistrationError("device registration refresh failed", error);
+        }),
+      ),
+    );
+  });
 }
 
 export function __resetAgentAwarenessRemoteRegistrationForTest(): void {
@@ -703,6 +726,7 @@ export function __resetAgentAwarenessRemoteRegistrationForTest(): void {
   activeDeviceRegistration = null;
   pendingDeviceRegistration = null;
   registrationStatus = "unknown";
+  registrationSuccessCount = 0;
   registrationStatusListeners.clear();
 }
 
