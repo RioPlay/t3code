@@ -32,6 +32,7 @@ import {
   normalizeAgentAwarenessRelayBaseUrl,
   registerAgentAwarenessConnection,
   registerLiveActivityPushToken,
+  releaseAgentAwarenessRelayTokenProvider,
   setAgentAwarenessRelayTokenProvider,
   shouldRegisterAgentAwarenessDeviceForProvider,
   unregisterAgentAwarenessConnection,
@@ -545,6 +546,59 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     setAgentAwarenessRelayTokenProvider(null);
     expect(getAgentAwarenessRegistrationStatus()).toBe("unknown");
     expect(clearAgentAwarenessRegistrationRecord).toHaveBeenCalled();
+  });
+
+  it("releases the provider without ending activities or clearing the registration", () => {
+    const end = vi.fn(() => Promise.resolve());
+    const activity = {
+      getPushToken: vi.fn(() => Promise.resolve("activity-token")),
+      addPushTokenListener: vi.fn(),
+      end,
+    };
+    widgetMocks.getInstances.mockReturnValue([activity] as never);
+    registrationRecordStore.current = { identity: "", signature: "sig" };
+    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
+    expect(appStateMock.listeners).toHaveLength(1);
+
+    releaseAgentAwarenessRelayTokenProvider();
+
+    expect(appStateMock.listeners).toHaveLength(0);
+    expect(end).not.toHaveBeenCalled();
+    expect(clearAgentAwarenessRegistrationRecord).not.toHaveBeenCalled();
+    expect(registrationRecordStore.current).not.toBeNull();
+  });
+
+  it.effect("resets a pending status to unknown when relay config is missing", () => {
+    // No relay url configured: registration can neither run nor ever succeed,
+    // so the status must not stick at "pending".
+    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
+
+    return Effect.gen(function* () {
+      yield* runBackgroundOperations();
+      expect(getAgentAwarenessRegistrationStatus()).toBe("unknown");
+    }).pipe(Effect.provide(relayTestLayer));
+  });
+
+  it.effect("keeps a registered status when a later refresh fails", () => {
+    Constants.expoConfig!.extra = {
+      relay: {
+        url: "https://relay.example.test/",
+      },
+    };
+    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
+
+    return Effect.gen(function* () {
+      yield* runBackgroundOperations();
+      expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
+
+      // The relay still holds the accepted registration; a transient refresh
+      // failure must not flip the settings toggles off.
+      vi.mocked(loadOrCreateAgentAwarenessDeviceId).mockRejectedValueOnce(
+        new Error("transient failure"),
+      );
+      yield* refreshAgentAwarenessRegistration();
+      expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
+    }).pipe(Effect.provide(relayTestLayer));
   });
 
   it.effect("does not re-register the same account when nothing has changed", () => {

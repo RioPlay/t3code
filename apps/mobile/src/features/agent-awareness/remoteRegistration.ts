@@ -199,9 +199,35 @@ export function setAgentAwarenessRelayTokenProvider(
     "active live activity registration after cloud sign-in failed",
   );
   if (isExistingIdentity) {
+    // Same account re-activating (e.g. Clerk token refresh) normally needs no
+    // re-registration — but if the previous attempt never succeeded, this is
+    // the only trigger that will retry it before the next cold start.
+    if (registrationStatus !== "registered") {
+      enqueueDeviceRegistration({}, "device registration retry after cloud session refresh failed");
+    }
     return;
   }
   enqueueDeviceRegistration({}, "device registration after cloud sign-in failed");
+}
+
+// Detach the provider and native listeners without the destructive sign-out
+// cleanup. For provider teardown while the user is still signed in (e.g. the
+// auth bridge unmounting/remounting), ending lock-screen activities and wiping
+// the persisted registration would be wrong — the relay still holds a valid
+// registration and the next mount reuses it.
+export function releaseAgentAwarenessRelayTokenProvider(): void {
+  relayTokenProvider = null;
+  relayTokenProviderIdentity = null;
+  pushToStartSubscription?.remove();
+  pushToStartSubscription = null;
+  pushTokenSubscription?.remove();
+  pushTokenSubscription = null;
+  appStateSubscription?.remove();
+  appStateSubscription = null;
+  if (activeLiveActivityRegistrationRetry) {
+    clearTimeout(activeLiveActivityRegistrationRetry);
+    activeLiveActivityRegistrationRetry = null;
+  }
 }
 
 function iosMajorVersion(): number {
@@ -303,7 +329,13 @@ function registerDeviceWithRelay(
       });
       return;
     }
-    if (!readRelayConfig()) return;
+    const relayConfig = readRelayConfig();
+    if (!relayConfig) {
+      // Nothing is in flight and nothing can succeed until configuration
+      // appears; "pending" would otherwise stick forever.
+      setRegistrationStatus("unknown");
+      return;
+    }
     const token = yield* relayToken("read-device-registration-relay-token");
     if (expectedGeneration !== deviceRegistrationGeneration) {
       logRegistrationDebug("device registration cancelled after auth lookup", {
@@ -314,6 +346,7 @@ function registerDeviceWithRelay(
     }
     if (!token) {
       logRegistrationDebug("relay device registration skipped; user is not signed in");
+      setRegistrationStatus("unknown");
       return;
     }
 
@@ -326,6 +359,15 @@ function registerDeviceWithRelay(
       try: () => loadAgentAwarenessRegistrationRecord(),
       catch: (cause) => cause,
     }).pipe(Effect.orElseSucceed(() => null));
+    if (expectedGeneration !== deviceRegistrationGeneration) {
+      // Signed out while the record loaded — do not resurrect the cleared
+      // record or report the previous account's registration as current.
+      logRegistrationDebug("device registration cancelled after record lookup", {
+        expectedGeneration,
+        currentGeneration: deviceRegistrationGeneration,
+      });
+      return;
+    }
     // The push-to-start token only rides along on registrations triggered by a
     // native token event; ones triggered by sign-in or app foreground omit it.
     // Carry the last accepted token forward so its absence means "unchanged",
@@ -335,7 +377,9 @@ function registerDeviceWithRelay(
       !body.pushToStartToken && persisted?.identity === identity && persisted.pushToStartToken
         ? { ...body, pushToStartToken: persisted.pushToStartToken }
         : body;
-    const signature = registrationSignature(payload);
+    // The relay URL participates so pointing the app at a different relay
+    // invalidates the record and re-registers there.
+    const signature = `${relayConfig.url}|${registrationSignature(payload)}`;
     if (persisted && persisted.identity === identity && persisted.signature === signature) {
       setRegistrationStatus("registered");
       logRegistrationDebug("relay device registration skipped; already registered for account", {
@@ -352,6 +396,16 @@ function registerDeviceWithRelay(
       clerkToken: token,
       payload,
     });
+    if (expectedGeneration !== deviceRegistrationGeneration) {
+      // Signed out while the request was in flight: the sign-out path already
+      // reset the status and cleared the record for the next account, so a
+      // stale success must not overwrite either.
+      logRegistrationDebug("device registration completed after sign-out; result discarded", {
+        expectedGeneration,
+        currentGeneration: deviceRegistrationGeneration,
+      });
+      return;
+    }
     setRegistrationStatus("registered");
     yield* Effect.promise(() =>
       saveAgentAwarenessRegistrationRecord({
@@ -495,7 +549,13 @@ function startPendingDeviceRegistration(): void {
       runtime.runPromiseExit(registerDevice(next.input, generation)),
     );
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-      setRegistrationStatus("failed");
+      // A transient failure on a later refresh (e.g. token rotation) leaves
+      // the prior accepted registration intact on the relay, so an already
+      // registered device stays "registered" rather than flipping the
+      // settings toggles off.
+      if (registrationStatus !== "registered") {
+        setRegistrationStatus("failed");
+      }
       logRegistrationError(next.context, squashAtomCommandFailure(result));
     }
     logRegistrationDebug("device registration finished", { generation });
@@ -705,7 +765,11 @@ export function refreshAgentAwarenessRegistration(): Effect.Effect<
   return registerDeviceForCurrentUser().pipe(
     Effect.catch((error) =>
       Effect.sync(() => {
-        setRegistrationStatus("failed");
+        // Same rationale as the queued path: a failed refresh does not undo an
+        // already accepted registration.
+        if (registrationStatus !== "registered") {
+          setRegistrationStatus("failed");
+        }
         logRegistrationError("device registration refresh failed", error);
       }),
     ),

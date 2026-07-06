@@ -418,6 +418,12 @@ const connectLinkCommand = Command.make("link", {
           true,
           flags.publishOnly ? "publish_only" : "managed",
         );
+        if (flags.publishOnly) {
+          // A publish-only link exists solely to publish; without the publish
+          // flag the link would be inert and the success message a lie.
+          const secrets = yield* ServerSecretStore.ServerSecretStore;
+          yield* secrets.set(PUBLISH_AGENT_ACTIVITY_SECRET, stringToBytes("true"));
+        }
         yield* Console.log(
           flags.publishOnly
             ? "This environment will publish agent activity to your mobile clients the next time T3 starts (no managed tunnel)."
@@ -494,6 +500,15 @@ const connectPublishCommand = Command.make("publish", {
           stringToBytes(enabled ? "true" : "false"),
         );
         if (!enabled) {
+          // If enabling scheduled a publish-only link that hasn't been
+          // provisioned yet, disabling must cancel it too — otherwise the next
+          // start still links an environment whose only purpose was publishing.
+          // A pending managed link is left alone; it exists for the tunnel.
+          const linkedNow = Option.isSome(yield* secrets.get(CLOUD_LINKED_USER_ID));
+          if (!linkedNow && (yield* CliState.readCliDesiredLinkMode) === "publish_only") {
+            yield* CliState.setCliDesiredCloudLink(false);
+            yield* Console.log("Cancelled the pending publish-only T3 Connect link.");
+          }
           yield* Console.log("Publishing agent activity disabled.");
           return;
         }
