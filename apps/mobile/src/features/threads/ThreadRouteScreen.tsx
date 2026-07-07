@@ -8,8 +8,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as Option from "effect/Option";
 import { EnvironmentId, ThreadId, type ProjectScript } from "@t3tools/contracts";
+import { projectThreadAwareness } from "@t3tools/shared/agentAwareness";
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@t3tools/shared/projectScripts";
-import { Platform, Pressable, ScrollView, Text as RNText, View } from "react-native";
+import { Platform, ScrollView, Text as RNText, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceState } from "../../state/workspace";
 import { useThemeColor } from "../../lib/useThemeColor";
@@ -43,11 +44,18 @@ import {
 } from "../terminal/terminalLaunchContext";
 import { terminalDebugLog } from "../terminal/terminalDebugLog";
 import { ThreadDetailScreen } from "./ThreadDetailScreen";
+import { ThreadAccessoryBar, threadAccessoryBarInsetHeight } from "./ThreadAccessoryBar";
 import {
   ThreadGitControls,
   useThreadGitCenterHeaderItems,
+  useThreadGitControlModel,
   useThreadGitRightHeaderItems,
 } from "./ThreadGitControls";
+import {
+  resolveThreadAccessoryActiveItem,
+  resolveThreadAccessoryBadges,
+  type ThreadAccessoryItemId,
+} from "./threadAccessoryBarModel";
 import { GitOverviewSheet } from "./git/GitOverviewSheet";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useSelectedThreadGitActions } from "../../state/use-selected-thread-git-actions";
@@ -69,11 +77,6 @@ import {
   type ThreadInspectorMode,
 } from "./thread-inspector-content-stack";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
-import {
-  isMaestroAuthBypassEnabled,
-  MAESTRO_FIXTURE_ENVIRONMENT_ID,
-  MAESTRO_FIXTURE_THREAD_ID,
-} from "../maestro/maestroAuthBypass";
 
 interface ThreadInspectorSelection {
   readonly routeThreadIdentity: string | null;
@@ -603,8 +606,90 @@ function ThreadRouteContent(
     onPull: gitActions.onPullSelectedThreadBranch,
     onRunAction: gitActions.onRunSelectedThreadGitAction,
   };
+  const threadGitModel = useThreadGitControlModel(threadGitControlProps);
   const threadCenterHeaderItems = useThreadGitCenterHeaderItems(threadGitControlProps);
   const compactRightHeaderItems = useThreadGitRightHeaderItems(threadGitControlProps);
+  const usesAndroidAccessoryBar = Platform.OS === "android";
+  const accessoryBarLayout = layout.usesSplitView ? ("rail" as const) : ("phone" as const);
+  const accessoryBarActiveItem = resolveThreadAccessoryActiveItem({
+    inspectorMode: inspectorMode === "files" || inspectorMode === "git" ? inspectorMode : null,
+  });
+  const accessoryBarBadges = resolveThreadAccessoryBadges({
+    gitStatus: gitStatus.data,
+    terminalSessions: terminalMenuSessions,
+    reviewPendingDot: Boolean(gitStatus.data?.hasWorkingTreeChanges),
+  });
+  const agentAwareness = useMemo(
+    () =>
+      selectedThread && selectedThreadProject
+        ? projectThreadAwareness({
+            environmentId: selectedThread.environmentId,
+            project: selectedThreadProject,
+            thread: selectedThread,
+          })
+        : null,
+    [selectedThread, selectedThreadProject],
+  );
+  const handleAccessoryBarPress = useCallback(
+    (item: ThreadAccessoryItemId) => {
+      switch (item) {
+        case "files":
+          threadGitModel.openFiles();
+          return;
+        case "terminal":
+          handleOpenTerminal();
+          return;
+        case "review":
+          threadGitModel.openReview();
+          return;
+        case "git":
+          threadGitModel.openGitInspector();
+          return;
+      }
+    },
+    [handleOpenTerminal, threadGitModel],
+  );
+  const handleAccessoryFilesCommand = useCallback(() => {
+    if (!usesAndroidAccessoryBar) {
+      return false;
+    }
+    threadGitModel.openFiles();
+    return true;
+  }, [threadGitModel, usesAndroidAccessoryBar]);
+  const handleAccessoryTerminalCommand = useCallback(() => {
+    if (!usesAndroidAccessoryBar) {
+      return false;
+    }
+    handleOpenTerminal();
+    return true;
+  }, [handleOpenTerminal, usesAndroidAccessoryBar]);
+  const handleAccessoryReviewCommand = useCallback(() => {
+    if (!usesAndroidAccessoryBar) {
+      return false;
+    }
+    threadGitModel.openReview();
+    return true;
+  }, [threadGitModel, usesAndroidAccessoryBar]);
+  useHardwareKeyboardCommand("files", handleAccessoryFilesCommand);
+  useHardwareKeyboardCommand("terminal", handleAccessoryTerminalCommand);
+  useHardwareKeyboardCommand("review", handleAccessoryReviewCommand);
+  const accessoryBar = usesAndroidAccessoryBar ? (
+    <ThreadAccessoryBar
+      activeItem={accessoryBarActiveItem}
+      badges={accessoryBarBadges}
+      canOpenFiles={threadGitControlProps.canOpenFiles}
+      canOpenTerminal={threadGitControlProps.canOpenTerminal}
+      canOpenReview={threadGitControlProps.canOpenFiles}
+      canOpenGit={Boolean(selectedThreadProject?.workspaceRoot)}
+      layout={accessoryBarLayout}
+      onPressItem={handleAccessoryBarPress}
+    />
+  ) : null;
+  const accessoryBarInset = usesAndroidAccessoryBar
+    ? accessoryBarLayout === "phone"
+      ? threadAccessoryBarInsetHeight(safeAreaInsets.bottom)
+      : 0
+    : 0;
   const splitLeftHeaderItems = useMemo<NativeHeaderItems>(
     () => [
       {
@@ -679,68 +764,63 @@ function ThreadRouteContent(
     connectionState: routeConnectionState,
   });
   const serverConfig = routeEnvironmentRuntime?.serverConfig ?? null;
+  const threadDetailScreen = (
+    <ThreadDetailScreen
+      selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
+      contentPresentation={contentPresentation}
+      screenTone={connectionTone(routeConnectionState)}
+      connectionError={routeConnectionError}
+      environmentLabel={selectedEnvironmentConnection?.environmentLabel ?? null}
+      selectedThreadFeed={composer.selectedThreadFeed}
+      activeWorkStartedAt={composer.activeWorkStartedAt}
+      activePendingApproval={requests.activePendingApproval}
+      respondingApprovalId={requests.respondingApprovalId}
+      activePendingUserInput={requests.activePendingUserInput}
+      activePendingUserInputDrafts={requests.activePendingUserInputDrafts}
+      activePendingUserInputAnswers={requests.activePendingUserInputAnswers}
+      respondingUserInputId={requests.respondingUserInputId}
+      draftMessage={composer.draftMessage}
+      draftAttachments={composer.draftAttachments}
+      connectionStateLabel={routeConnectionState}
+      threadSyncStatus={selectedThreadDetailState.status}
+      activeThreadBusy={composer.activeThreadBusy}
+      environmentId={selectedThread.environmentId}
+      projectWorkspaceRoot={selectedThreadProject?.workspaceRoot ?? null}
+      threadCwd={selectedThreadCwd}
+      selectedThreadQueueCount={composer.selectedThreadQueueCount}
+      layoutVariant={layout.variant}
+      usesAutomaticContentInsets={usesNativeHeaderGlass}
+      agentAwareness={usesAndroidAccessoryBar ? agentAwareness : null}
+      footerChrome={accessoryBarLayout === "phone" ? accessoryBar : null}
+      footerChromeInset={accessoryBarInset}
+      onRefreshThread={handleReconnectEnvironment}
+      onOpenConnectionEditor={handleOpenConnectionEditor}
+      onChangeDraftMessage={composer.onChangeDraftMessage}
+      onPickDraftImages={composer.onPickDraftImages}
+      onNativePasteImages={composer.onNativePasteImages}
+      onRemoveDraftImage={composer.onRemoveDraftImage}
+      serverConfig={serverConfig}
+      onStopThread={handleStopThread}
+      onSendMessage={composer.onSendMessage}
+      onReconnectEnvironment={handleReconnectEnvironment}
+      onUpdateThreadModelSelection={composer.onUpdateModelSelection}
+      onUpdateThreadRuntimeMode={composer.onUpdateRuntimeMode}
+      onUpdateThreadInteractionMode={composer.onUpdateInteractionMode}
+      onRespondToApproval={requests.onRespondToApproval}
+      onSelectUserInputOption={requests.onSelectUserInputOption}
+      onChangeUserInputCustomAnswer={requests.onChangeUserInputCustomAnswer}
+      onSubmitUserInput={requests.onSubmitUserInput}
+    />
+  );
   const renderThreadRouteBody = (showActionControls: boolean) => (
     <>
       <ThreadGitControls {...threadGitControlProps} showActionControls={showActionControls} />
 
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
 
-      <View className="flex-1 bg-screen" testID="thread-screen">
-        {isMaestroAuthBypassEnabled() ? (
-          <Pressable
-            accessibilityLabel="Open review"
-            testID="thread-accessory-review"
-            onPress={() =>
-              navigation.navigate("ThreadReview", {
-                environmentId: MAESTRO_FIXTURE_ENVIRONMENT_ID,
-                threadId: MAESTRO_FIXTURE_THREAD_ID,
-              })
-            }
-            style={{ height: 1, opacity: 0, position: "absolute", width: 1 }}
-          />
-        ) : null}
-        <ThreadDetailScreen
-          selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
-          contentPresentation={contentPresentation}
-          screenTone={connectionTone(routeConnectionState)}
-          connectionError={routeConnectionError}
-          environmentLabel={selectedEnvironmentConnection?.environmentLabel ?? null}
-          selectedThreadFeed={composer.selectedThreadFeed}
-          activeWorkStartedAt={composer.activeWorkStartedAt}
-          activePendingApproval={requests.activePendingApproval}
-          respondingApprovalId={requests.respondingApprovalId}
-          activePendingUserInput={requests.activePendingUserInput}
-          activePendingUserInputDrafts={requests.activePendingUserInputDrafts}
-          activePendingUserInputAnswers={requests.activePendingUserInputAnswers}
-          respondingUserInputId={requests.respondingUserInputId}
-          draftMessage={composer.draftMessage}
-          draftAttachments={composer.draftAttachments}
-          connectionStateLabel={routeConnectionState}
-          threadSyncStatus={selectedThreadDetailState.status}
-          activeThreadBusy={composer.activeThreadBusy}
-          environmentId={selectedThread.environmentId}
-          projectWorkspaceRoot={selectedThreadProject?.workspaceRoot ?? null}
-          threadCwd={selectedThreadCwd}
-          selectedThreadQueueCount={composer.selectedThreadQueueCount}
-          layoutVariant={layout.variant}
-          usesAutomaticContentInsets={usesNativeHeaderGlass}
-          onOpenConnectionEditor={handleOpenConnectionEditor}
-          onChangeDraftMessage={composer.onChangeDraftMessage}
-          onPickDraftImages={composer.onPickDraftImages}
-          onNativePasteImages={composer.onNativePasteImages}
-          onRemoveDraftImage={composer.onRemoveDraftImage}
-          serverConfig={serverConfig}
-          onStopThread={handleStopThread}
-          onSendMessage={composer.onSendMessage}
-          onReconnectEnvironment={handleReconnectEnvironment}
-          onUpdateThreadModelSelection={composer.onUpdateModelSelection}
-          onUpdateThreadRuntimeMode={composer.onUpdateRuntimeMode}
-          onUpdateThreadInteractionMode={composer.onUpdateInteractionMode}
-          onRespondToApproval={requests.onRespondToApproval}
-          onSelectUserInputOption={requests.onSelectUserInputOption}
-          onChangeUserInputCustomAnswer={requests.onChangeUserInputCustomAnswer}
-          onSubmitUserInput={requests.onSubmitUserInput}
-        />
+      <View className="flex-1 flex-row bg-screen" testID="thread-screen">
+        {accessoryBarLayout === "rail" ? accessoryBar : null}
+        <View className="flex-1">{threadDetailScreen}</View>
       </View>
     </>
   );
@@ -781,7 +861,9 @@ function ThreadRouteContent(
         }}
       />
 
-      {renderThreadRouteBody(!layout.usesSplitView && !usesNativeHeaderGlass)}
+      {renderThreadRouteBody(
+        !layout.usesSplitView && !usesNativeHeaderGlass && !usesAndroidAccessoryBar,
+      )}
     </>
   );
 }

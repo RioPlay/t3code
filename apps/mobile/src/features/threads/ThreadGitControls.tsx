@@ -106,7 +106,7 @@ type ThreadGitControlsProps = ThreadGitMenuProps & {
   readonly onRunProjectScript: (script: ProjectScript) => Promise<void>;
 };
 
-function useThreadGitControlModel(props: ThreadGitMenuProps) {
+export function useThreadGitControlModel(props: ThreadGitMenuProps) {
   const navigation = useNavigation();
   const environmentId = props.environmentId;
   const threadId = props.threadId;

@@ -14,10 +14,20 @@ import type {
   ServerConfig as T3ServerConfig,
   ThreadId,
 } from "@t3tools/contracts";
+import type { AgentAwarenessState } from "@t3tools/shared/agentAwareness";
 import { formatElapsed } from "@t3tools/shared/orchestrationTiming";
 import * as Haptics from "expo-haptics";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Platform, View, type GestureResponderEvent } from "react-native";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { Alert, Platform, View, type GestureResponderEvent } from "react-native";
 import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";
 import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,6 +44,7 @@ import type {
   PendingUserInputDraftAnswer,
   ThreadFeedEntry,
 } from "../../lib/threadActivity";
+import { MemoAgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { PendingApprovalCard } from "./PendingApprovalCard";
 import { PendingUserInputCard } from "./PendingUserInputCard";
 import {
@@ -99,6 +110,10 @@ export interface ThreadDetailScreenProps {
   ) => void;
   readonly onSubmitUserInput: () => Promise<unknown>;
   readonly showContent?: boolean;
+  readonly agentAwareness?: AgentAwarenessState | null;
+  readonly footerChrome?: ReactNode;
+  readonly footerChromeInset?: number;
+  readonly onRefreshThread?: () => void;
 }
 
 function latestStreamingAssistantMessage(
@@ -226,7 +241,9 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const lastScrolledAnchorMessageIdRef = useRef<MessageId | null>(null);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const [anchorMessageId, setAnchorMessageId] = useState<MessageId | null>(null);
-  const composerBottomInset = composerExpanded ? 0 : Math.max(insets.bottom, 12);
+  const footerChromeInset = props.footerChromeInset ?? 0;
+  const composerBottomInset =
+    footerChromeInset > 0 ? 0 : composerExpanded ? 0 : Math.max(insets.bottom, 12);
   const contentPresentationKind = props.contentPresentation.kind;
   // The raw sync status enters "synchronizing" on every full fetch, cached or
   // not. Whether messages are already on screen decides the pill label: no
@@ -248,7 +265,8 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const composerChrome = composerExpanded ? COMPOSER_EXPANDED_CHROME : COMPOSER_COLLAPSED_CHROME;
   const composerOverlapHeight = composerChrome + composerBottomInset;
   const activeWorkIndicatorHeight = props.activeWorkStartedAt ? WORKING_INDICATOR_HEIGHT : 0;
-  const estimatedOverlayHeight = composerOverlapHeight + activeWorkIndicatorHeight;
+  const estimatedOverlayHeight =
+    composerOverlapHeight + activeWorkIndicatorHeight + footerChromeInset;
   // The overlay's measured height includes the home-indicator inset (the
   // composer pads it), but contentInsetAdjustmentBehavior="automatic" makes
   // UIKit add the safe-area bottom to the content inset AGAIN — leaving a
@@ -386,8 +404,42 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     feedTouchStartRef.current = null;
   }, []);
 
+  const handleAgentPhasePress = useCallback(
+    (awareness: AgentAwarenessState) => {
+      switch (awareness.phase) {
+        case "waiting_for_approval":
+          void Haptics.selectionAsync();
+          void scrollMessageToEnd({ animated: true, closeKeyboard: false });
+          return;
+        case "waiting_for_input":
+          composerEditorRef.current?.focus();
+          return;
+        case "failed":
+          if (awareness.detail) {
+            Alert.alert(awareness.headline, awareness.detail);
+          } else {
+            void scrollMessageToEnd({ animated: true, closeKeyboard: false });
+          }
+          return;
+        case "completed":
+          void scrollMessageToEnd({ animated: true, closeKeyboard: false });
+          return;
+        case "stale":
+          Alert.alert("Checking for updates…", "Refreshing thread status.");
+          props.onRefreshThread?.();
+          return;
+        default:
+          return;
+      }
+    },
+    [props.onRefreshThread, scrollMessageToEnd],
+  );
+
   return (
     <View className="flex-1">
+      {showContent && props.agentAwareness ? (
+        <MemoAgentPhaseIndicator awareness={props.agentAwareness} onPress={handleAgentPhasePress} />
+      ) : null}
       {showContent ? (
         <View
           style={{ flex: 1 }}
@@ -423,9 +475,14 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
       )}
 
       {/* Floating composer — sticks to keyboard via KeyboardStickyView */}
+      {props.footerChrome ? (
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+          {props.footerChrome}
+        </View>
+      ) : null}
       {showContent ? (
         <KeyboardStickyView
-          style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}
+          style={{ position: "absolute", bottom: footerChromeInset, left: 0, right: 0 }}
           offset={{ closed: 0, opened: 0 }}
         >
           {/* No paddingTop here: the overlay's measured height becomes the
