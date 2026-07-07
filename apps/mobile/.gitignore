@@ -40,6 +40,9 @@ yarn-error.*
 /ios
 /android
 
+# local Firebase credentials (use GOOGLE_SERVICES_JSON or EAS secrets in CI)
+/secrets/
+
 # Firebase / FCM (never commit; use EAS GOOGLE_SERVICES_JSON file secret)
 google-services.json
 secrets/google-services.*.json

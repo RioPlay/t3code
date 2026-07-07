@@ -186,6 +186,10 @@
     "./review": {
       "types": "./src/review/cacheKeys.ts",
       "import": "./src/review/cacheKeys.ts"
+    },
+    "./lanDiscovery": {
+      "types": "./src/lanDiscovery.ts",
+      "import": "./src/lanDiscovery.ts"
     }
   },
   "scripts": {

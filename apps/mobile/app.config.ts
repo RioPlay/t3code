@@ -114,8 +114,9 @@ const config: ExpoConfig = {
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
       },
+      NSBonjourServices: ["_t3code._tcp"],
       NSLocalNetworkUsageDescription:
-        "Allow T3 Code to connect to T3 Code servers on your local network or tailnet.",
+        "Allow T3 Code to find and connect to T3 Code desktops on your local network or tailnet.",
       ITSAppUsesNonExemptEncryption: false,
     },
   },
@@ -198,6 +199,7 @@ const config: ExpoConfig = {
     "./plugins/withAndroidCleartextTraffic.cjs",
     "./plugins/withAndroidBuildFixes.cjs",
     "./plugins/withAndroidGoogleServices.cjs",
+    "./plugins/withAndroidLanDiscovery.cjs",
   ],
   extra: {
     appVariant: APP_VARIANT,
