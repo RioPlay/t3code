@@ -14,7 +14,10 @@ export CI="${CI:-true}"
 MAESTRO_FLOWS=(
   "apps/mobile/.maestro/flows/smoke-launch.yaml"
   "apps/mobile/.maestro/flows/smoke-review.yaml"
+  "apps/mobile/.maestro/flows/smoke-tablet-split.yaml"
 )
+TABLET_SPLIT_FLOW="apps/mobile/.maestro/flows/smoke-tablet-split.yaml"
+TABLET_RESIZE_SCRIPT="apps/mobile/.maestro/scripts/resize-tablet-emulator.sh"
 OPTIONAL_FLOWS=(
   "apps/mobile/.maestro/flows/smoke-agent-push.yaml"
 )
@@ -112,16 +115,44 @@ start_metro() {
   exit 1
 }
 
+prepare_tablet_split_viewport() {
+  if [[ ! -f "${TABLET_RESIZE_SCRIPT}" ]]; then
+    echo "Missing tablet resize script: ${TABLET_RESIZE_SCRIPT}" >&2
+    exit 1
+  fi
+  chmod +x "${TABLET_RESIZE_SCRIPT}"
+  log "Resize emulator for tablet split (1280x800)"
+  "${TABLET_RESIZE_SCRIPT}"
+}
+
+reset_emulator_viewport() {
+  adb shell wm size reset >/dev/null 2>&1 || true
+}
+
 run_flow() {
   local flow="$1"
   local optional="${2:-false}"
+  local resized_for_tablet="false"
+  if [[ "${flow}" == "${TABLET_SPLIT_FLOW}" ]]; then
+    prepare_tablet_split_viewport
+    resized_for_tablet="true"
+  fi
   log "Maestro: ${flow}"
   if maestro test "${flow}"; then
+    if [[ "${resized_for_tablet}" == "true" ]]; then
+      reset_emulator_viewport
+    fi
     return 0
   fi
   log "Retry: ${flow}"
   if maestro test "${flow}"; then
+    if [[ "${resized_for_tablet}" == "true" ]]; then
+      reset_emulator_viewport
+    fi
     return 0
+  fi
+  if [[ "${resized_for_tablet}" == "true" ]]; then
+    reset_emulator_viewport
   fi
   if [[ "${optional}" == "true" ]]; then
     log "Optional flow failed (allowed): ${flow}"

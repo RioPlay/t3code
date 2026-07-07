@@ -10,4 +10,5 @@ env:
 flows:
   - flows/smoke-launch.yaml
   - flows/smoke-review.yaml
+  - flows/smoke-tablet-split.yaml
   - flows/smoke-agent-push.yaml

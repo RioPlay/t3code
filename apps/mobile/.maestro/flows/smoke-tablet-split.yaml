@@ -1,0 +1,15 @@
+appId: ${APP_ID}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+- assertVisible:
+    id: "adaptive-workspace-layout"
+- assertVisible:
+    id: "thread-navigation-sidebar"
+- tapOn:
+    id: "home-thread-row"
+    index: 0
+- assertVisible:
+    id: "thread-screen"
+- assertVisible:
+    id: "thread-navigation-sidebar"
+- stopApp
