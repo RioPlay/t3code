@@ -286,6 +286,44 @@ describe("FcmDeliveries", () => {
     );
   });
 
+  it.effect("queues bounded FCM notification payloads", () => {
+    const queuedJobs: Array<SignedFcmDeliveryJob> = [];
+    const longTitle = "x".repeat(300);
+    const inputAggregate: RelayAgentActivityAggregateState = {
+      ...aggregate,
+      activities: [
+        {
+          ...aggregate.activities[0]!,
+          projectTitle: longTitle,
+          threadTitle: longTitle,
+          phase: "waiting_for_input",
+          status: "Input",
+          deepLink: "https://example.test/not-an-app-link",
+        },
+      ],
+    };
+
+    return Effect.gen(function* () {
+      const deliveries = yield* FcmDeliveries.FcmDeliveries;
+      yield* deliveries.sendForTarget({
+        target: androidTarget,
+        aggregate: inputAggregate,
+      });
+
+      const notification = queuedJobs[0]?.payload.notification;
+      expect(notification?.title.length).toBeLessThanOrEqual(120);
+      expect(notification?.body.length).toBeLessThanOrEqual(120);
+      expect(notification?.deepLink).toBe("/");
+    }).pipe(
+      Effect.provide(
+        makeLayer({
+          queuedJobs,
+          config: enabledFcmConfig,
+        }),
+      ),
+    );
+  });
+
   it.effect("invalidates dead device push tokens after permanent FCM failures", () => {
     const attempts: Array<DeliveryAttempts.DeliveryAttemptInput> = [];
     const invalidatedTokens: Array<

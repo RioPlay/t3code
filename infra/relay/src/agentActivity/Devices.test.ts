@@ -283,6 +283,98 @@ describe("Devices", () => {
     );
   });
 
+  it.effect("claims FCM tokens globally before upserting the current Android device", () => {
+    const calls: Array<string> = [];
+    const updateSets: Array<Record<string, unknown>> = [];
+    const updateConditions: Array<SQL> = [];
+    const insertedValues: Array<Record<string, unknown>> = [];
+    const dialect = new PgDialect();
+    const androidRegistration: RelayAndroidDeviceRegistrationRequest = {
+      deviceId: "pixel-1" as RelayAndroidDeviceRegistrationRequest["deviceId"],
+      label: "Pixel 9",
+      platform: "android",
+      androidSdkVersion: 35,
+      appVersion: "1.0.0" as RelayAndroidDeviceRegistrationRequest["appVersion"],
+      pushToken: "fcm-device-token" as RelayAndroidDeviceRegistrationRequest["pushToken"],
+      preferences: {
+        notificationsEnabled: true,
+        liveActivitiesEnabled: true,
+        notifyOnApproval: true,
+        notifyOnInput: true,
+        notifyOnCompletion: true,
+        notifyOnFailure: true,
+      },
+    };
+
+    const fakeDb = {
+      update: (table: unknown) => {
+        expect(table).toBe(relayMobileDevices);
+        calls.push("update");
+        return {
+          set: (values: Record<string, unknown>) => {
+            updateSets.push(values);
+            calls.push("update.set");
+            return {
+              where: (condition: SQL) => {
+                updateConditions.push(condition);
+                calls.push("update.where");
+                return Effect.void;
+              },
+            };
+          },
+        };
+      },
+      insert: (table: unknown) => {
+        expect(table).toBe(relayMobileDevices);
+        calls.push("insert");
+        return {
+          values: (values: Record<string, unknown>) => {
+            insertedValues.push(values);
+            calls.push("insert.values");
+            return {
+              onConflictDoUpdate: () => {
+                calls.push("insert.onConflictDoUpdate");
+                return Effect.void;
+              },
+            };
+          },
+        };
+      },
+    } as unknown as RelayDb.RelayDb["Service"];
+
+    return Effect.gen(function* () {
+      const devices = yield* Devices.Devices;
+      yield* devices.register({ userId: "user-2", registration: androidRegistration });
+
+      expect(calls).toEqual([
+        "update",
+        "update.set",
+        "update.where",
+        "insert",
+        "insert.values",
+        "insert.onConflictDoUpdate",
+      ]);
+      expect(updateSets).toEqual([expect.objectContaining({ pushToken: null })]);
+      expect(updateConditions.map((condition) => dialect.sqlToQuery(condition))).toEqual([
+        {
+          sql: '"relay_mobile_devices"."push_token" = $1',
+          params: ["fcm-device-token"],
+        },
+      ]);
+      expect(insertedValues).toEqual([
+        expect.objectContaining({
+          userId: "user-2",
+          deviceId: "pixel-1",
+          platform: "android",
+          pushToken: "fcm-device-token",
+          pushToStartToken: null,
+        }),
+      ]);
+    }).pipe(
+      Effect.provide(Devices.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb)))),
+    );
+  });
+
   it.effect("persists Android rows with android_sdk_version and coerced live activities", () => {
     const calls: Array<string> = [];
     const insertedValues: Array<Record<string, unknown>> = [];
@@ -359,6 +451,72 @@ describe("Devices", () => {
             notificationsEnabled: true,
           }),
         }),
+      ]);
+    }).pipe(
+      Effect.provide(Devices.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb)))),
+    );
+  });
+
+  it.effect("round-trips Android push targets for delivery routing", () => {
+    const storedRows: Array<Record<string, unknown>> = [];
+    const androidRegistration: RelayAndroidDeviceRegistrationRequest = {
+      deviceId: "pixel-1" as RelayAndroidDeviceRegistrationRequest["deviceId"],
+      label: "Pixel 9",
+      platform: "android",
+      androidSdkVersion: 35,
+      appVersion: "1.0.0" as RelayAndroidDeviceRegistrationRequest["appVersion"],
+      pushToken: "fcm-device-token" as RelayAndroidDeviceRegistrationRequest["pushToken"],
+      preferences: {
+        notificationsEnabled: true,
+        liveActivitiesEnabled: true,
+        notifyOnApproval: true,
+        notifyOnInput: true,
+        notifyOnCompletion: true,
+        notifyOnFailure: true,
+      },
+    };
+
+    const fakeDb = {
+      update: () => ({
+        set: () => ({
+          where: () => Effect.void,
+        }),
+      }),
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          storedRows.push(values);
+          return {
+            onConflictDoUpdate: () => Effect.void,
+          };
+        },
+      }),
+      select: () => ({
+        from: () => ({
+          where: () =>
+            Effect.succeed(
+              storedRows.map((row) => ({
+                deviceId: row.deviceId,
+                pushToken: row.pushToken,
+                preferences: row.preferencesJson,
+              })),
+            ),
+        }),
+      }),
+    } as unknown as RelayDb.RelayDb["Service"];
+
+    return Effect.gen(function* () {
+      const devices = yield* Devices.Devices;
+      yield* devices.register({ userId: "user-2", registration: androidRegistration });
+      const targets = yield* devices.listAndroidPushTargets({ userId: "user-2" });
+
+      expect(targets).toMatchObject([
+        {
+          user_id: "user-2",
+          device_id: "pixel-1",
+          platform: "android",
+          push_token: "fcm-device-token",
+          preferences_json: expect.stringMatching(/"liveActivitiesEnabled":false/),
+        },
       ]);
     }).pipe(
       Effect.provide(Devices.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb)))),
