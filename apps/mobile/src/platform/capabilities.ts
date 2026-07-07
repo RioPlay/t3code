@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { Platform } from "react-native";
 
 import {
   resolveNativeReviewDiffView,
@@ -36,6 +37,21 @@ function readTruthyPublicEnv(name: string): boolean {
   return value === "1" || value === "true";
 }
 
+function readFalsyPublicEnv(name: string): boolean {
+  const value = readPublicEnv(name);
+  return value === "0" || value === "false";
+}
+
+function resolvePreferTerminalWebView(): boolean {
+  if (readTruthyPublicEnv("EXPO_PUBLIC_TERMINAL_WEBVIEW")) {
+    return true;
+  }
+  if (readFalsyPublicEnv("EXPO_PUBLIC_TERMINAL_WEBVIEW")) {
+    return false;
+  }
+  return Platform.OS === "android";
+}
+
 function hasNativeComposerEditor(): boolean {
   try {
     const config = (
@@ -52,7 +68,7 @@ function hasNativeComposerEditor(): boolean {
 export function resolvePlatformCapabilities(): PlatformCapabilities {
   const forceJsReview = readTruthyPublicEnv("EXPO_PUBLIC_FORCE_JS_REVIEW");
   const forceNitroMarkdown = readTruthyPublicEnv("EXPO_PUBLIC_FORCE_NITRO_MARKDOWN");
-  const preferTerminalWebView = readTruthyPublicEnv("EXPO_PUBLIC_TERMINAL_WEBVIEW");
+  const preferTerminalWebView = resolvePreferTerminalWebView();
   const chipModeEnv = readPublicEnv("EXPO_PUBLIC_COMPOSER_CHIP_MODE");
   const nativeComposerAvailable = hasNativeComposerEditor();
 

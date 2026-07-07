@@ -4,7 +4,7 @@ import { SymbolView } from "expo-symbols";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { StackActions, useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, View, useColorScheme } from "react-native";
+import { Pressable, View, useColorScheme } from "react-native";
 import {
   KeyboardController,
   KeyboardEvents,
@@ -40,7 +40,9 @@ import { useThreadSelection } from "../../state/use-thread-selection";
 import { useSelectedThreadDetail } from "../../state/use-thread-detail";
 import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { platformCapabilities } from "../../platform/capabilities";
 import { TerminalSurface } from "./NativeTerminalSurface";
+import { resolveTerminalTier, terminalRouteHeaderSubtitle } from "./terminalTierModel";
 import { getPierreTerminalTheme } from "./terminalTheme";
 import { terminalDebugLog } from "./terminalDebugLog";
 import {
@@ -402,10 +404,12 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
   );
 
   const terminalTheme = getPierreTerminalTheme(appearanceScheme);
-  const usesNativeHeaderGlass = Platform.OS === "ios";
   const pendingModifier =
     pendingModifierState.terminalId === terminalId ? pendingModifierState.value : null;
-  const headerSubtitle = selectedThreadProject?.title ?? "";
+  const headerSubtitle = terminalRouteHeaderSubtitle({
+    tier: resolveTerminalTier(platformCapabilities),
+    sessionLabel: resolveTerminalSessionLabel(terminalId, terminal.summary),
+  });
   const terminalToolbarActions = useMemo<ReadonlyArray<TerminalToolbarAction>>(() => {
     const modifierActions: ReadonlyArray<TerminalToolbarAction> =
       hostPlatform === "mac"
@@ -859,8 +863,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
           // scrolls internally, nothing for glass to sample). Default title/subtitle
           // styling, like every other page.
           title: "Terminal",
-          unstable_headerSubtitle:
-            usesNativeHeaderGlass && headerSubtitle.length > 0 ? headerSubtitle : undefined,
+          unstable_headerSubtitle: headerSubtitle.length > 0 ? headerSubtitle : undefined,
         }}
       />
 

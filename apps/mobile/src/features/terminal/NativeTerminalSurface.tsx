@@ -12,6 +12,7 @@ import {
 
 import { AppText as Text } from "../../components/AppText";
 import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
+import { platformCapabilities } from "../../platform/capabilities";
 import {
   getNativeTerminalHardwareKeyRevision,
   resolveNativeTerminalSurfaceView,
@@ -22,6 +23,7 @@ import {
   type TerminalTheme,
 } from "./terminalTheme";
 import { terminalDebugLog } from "./terminalDebugLog";
+import { WebViewTerminalSurface } from "./webView/WebViewTerminalSurface";
 
 interface TerminalInputEvent {
   readonly data: string;
@@ -219,6 +221,10 @@ export const TerminalSurface = memo(function TerminalSurface(props: TerminalSurf
     },
     [onResize],
   );
+
+  if (platformCapabilities.terminal.preferWebView) {
+    return <WebViewTerminalSurface {...props} fontSize={fontSize} theme={theme} />;
+  }
 
   if (NativeTerminalSurfaceView) {
     return (
