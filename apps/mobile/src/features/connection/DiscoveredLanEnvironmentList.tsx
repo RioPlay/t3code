@@ -51,35 +51,40 @@ export function DiscoveredLanEnvironmentList(props: {
         </Text>
       ) : (
         <View collapsable={false} className="overflow-hidden rounded-[18px] border border-border">
-          {props.environments.map((environment, index) => (
-            <Pressable
-              key={environment.key}
-              accessibilityRole="button"
-              accessibilityLabel={`${environment.label}, ${environment.hostInput}`}
-              className="px-4 py-3.5 active:opacity-70"
-              style={{ borderTopWidth: index === 0 ? 0 : 1 }}
-              onPress={() => props.onSelect(environment)}
-            >
-              <Text className="text-base font-t3-bold text-foreground" numberOfLines={1}>
-                {environment.label}
-              </Text>
-              <Text className="mt-0.5 text-xs text-foreground-muted" numberOfLines={1}>
-                {environment.hostInput}
-              </Text>
-              {environment.detailLine ? (
-                <Text
-                  className={
-                    environment.status === "unavailable"
-                      ? "mt-1 text-xs text-destructive"
-                      : "mt-1 text-xs text-foreground-tertiary"
-                  }
-                  numberOfLines={2}
-                >
-                  {environment.detailLine}
+          {props.environments.map((environment, index) => {
+            const selectable = environment.status === "available";
+            return (
+              <Pressable
+                key={environment.key}
+                accessibilityRole="button"
+                accessibilityLabel={`${environment.label}, ${environment.hostInput}`}
+                accessibilityState={{ disabled: !selectable }}
+                className="px-4 py-3.5 active:opacity-70"
+                disabled={!selectable}
+                style={{ borderTopWidth: index === 0 ? 0 : 1, opacity: selectable ? 1 : 0.55 }}
+                onPress={() => props.onSelect(environment)}
+              >
+                <Text className="text-base font-t3-bold text-foreground" numberOfLines={1}>
+                  {environment.label}
                 </Text>
-              ) : null}
-            </Pressable>
-          ))}
+                <Text className="mt-0.5 text-xs text-foreground-muted" numberOfLines={1}>
+                  {environment.hostInput}
+                </Text>
+                {environment.detailLine ? (
+                  <Text
+                    className={
+                      environment.status === "unavailable"
+                        ? "mt-1 text-xs text-destructive"
+                        : "mt-1 text-xs text-foreground-tertiary"
+                    }
+                    numberOfLines={2}
+                  >
+                    {environment.detailLine}
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
         </View>
       )}
     </View>

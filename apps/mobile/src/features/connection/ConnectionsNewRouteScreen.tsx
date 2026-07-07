@@ -10,9 +10,14 @@ import { useThemeColor } from "../../lib/useThemeColor";
 import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ConnectionSheetButton } from "./ConnectionSheetButton";
+import { DiscoveredLanEnvironmentList } from "./DiscoveredLanEnvironmentList";
 import { extractPairingUrlFromQrPayload } from "./pairing";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { buildPairingUrl, parsePairingUrl } from "./pairing";
+import {
+  useLanDiscoveryController,
+  type DiscoveredLanEnvironmentView,
+} from "./useLanDiscoveryController";
 
 type ConnectionsNewRouteParams = {
   readonly mode?: string;
@@ -36,6 +41,7 @@ export function ConnectionsNewRouteScreen({
   const [showScanner, setShowScanner] = useState(params.mode === "scan_qr");
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [scannerLocked, setScannerLocked] = useState(false);
+  const lanDiscovery = useLanDiscoveryController(!showScanner);
 
   const headerIconColor = useThemeColor("--color-icon");
   const placeholderColor = useThemeColor("--color-placeholder");
@@ -114,6 +120,20 @@ export function ConnectionsNewRouteScreen({
       }
     },
     [onChangeConnectionPairingUrl, scannerLocked],
+  );
+
+  const handleLanEnvironmentSelect = useCallback(
+    (environment: DiscoveredLanEnvironmentView) => {
+      if (environment.status !== "available") {
+        return;
+      }
+
+      const host = environment.httpBaseUrl.replace(/\/$/u, "");
+      setHostInput(environment.hostInput);
+      setCodeInput("");
+      onChangeConnectionPairingUrl(buildPairingUrl(host, ""));
+    },
+    [onChangeConnectionPairingUrl],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -198,56 +218,66 @@ export function ConnectionsNewRouteScreen({
               </View>
             )
           ) : (
-            <View collapsable={false} className="gap-4 rounded-[24px] bg-card p-4">
-              <View collapsable={false} className="gap-1.5">
-                <Text
-                  className="text-2xs font-t3-bold uppercase text-foreground-muted"
-                  style={{ letterSpacing: 0.8 }}
-                >
-                  Host
-                </Text>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  placeholder="192.168.1.100:8080"
-                  placeholderTextColor={placeholderColor}
-                  value={hostInput}
-                  onChangeText={handleHostChange}
-                  className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
-                />
-              </View>
-
-              <View collapsable={false} className="gap-1.5">
-                <Text
-                  className="text-2xs font-t3-bold uppercase text-foreground-muted"
-                  style={{ letterSpacing: 0.8 }}
-                >
-                  Pairing code
-                </Text>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholder="abc-123-xyz"
-                  placeholderTextColor={placeholderColor}
-                  value={codeInput}
-                  onChangeText={handleCodeChange}
-                  className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
-                />
-              </View>
-
-              {pairingConnectionError ? <ErrorBanner message={pairingConnectionError} /> : null}
-
-              <ConnectionSheetButton
-                icon="plus"
-                label={isSubmitting ? "Pairing..." : "Add environment"}
-                disabled={connectDisabled}
-                tone="primary"
-                onPress={() => {
-                  void handleSubmit();
-                }}
+            <>
+              <DiscoveredLanEnvironmentList
+                environments={lanDiscovery.environments}
+                isOffline={lanDiscovery.isOffline}
+                isScanning={lanDiscovery.isScanning}
+                onRefresh={lanDiscovery.refresh}
+                onSelect={handleLanEnvironmentSelect}
               />
-            </View>
+
+              <View collapsable={false} className="gap-4 rounded-[24px] bg-card p-4">
+                <View collapsable={false} className="gap-1.5">
+                  <Text
+                    className="text-2xs font-t3-bold uppercase text-foreground-muted"
+                    style={{ letterSpacing: 0.8 }}
+                  >
+                    Host
+                  </Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    placeholder="192.168.1.100:8080"
+                    placeholderTextColor={placeholderColor}
+                    value={hostInput}
+                    onChangeText={handleHostChange}
+                    className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
+                  />
+                </View>
+
+                <View collapsable={false} className="gap-1.5">
+                  <Text
+                    className="text-2xs font-t3-bold uppercase text-foreground-muted"
+                    style={{ letterSpacing: 0.8 }}
+                  >
+                    Pairing code
+                  </Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="abc-123-xyz"
+                    placeholderTextColor={placeholderColor}
+                    value={codeInput}
+                    onChangeText={handleCodeChange}
+                    className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
+                  />
+                </View>
+
+                {pairingConnectionError ? <ErrorBanner message={pairingConnectionError} /> : null}
+
+                <ConnectionSheetButton
+                  icon="plus"
+                  label={isSubmitting ? "Pairing..." : "Add environment"}
+                  disabled={connectDisabled}
+                  tone="primary"
+                  onPress={() => {
+                    void handleSubmit();
+                  }}
+                />
+              </View>
+            </>
           )}
         </View>
       </ScrollView>
