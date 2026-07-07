@@ -1,0 +1,11 @@
+appId: ${APP_ID}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-thread-list"
+- scroll:
+    id: "home-thread-list"
+    direction: DOWN
+- stopApp

@@ -124,6 +124,7 @@ const ReviewFileHeaderRow = memo(function ReviewFileHeaderRow(props: {
     <Pressable
       accessibilityRole="button"
       className="border-b border-border bg-card px-3 py-2.5"
+      testID="review-diff-file-row"
       onPress={() => props.onToggleFile(file.id)}
     >
       <View className="flex-row items-center gap-2">
@@ -411,6 +412,7 @@ export const JavaScriptReviewDiffList = forwardRef(function JavaScriptReviewDiff
     <LegendList
       key={props.contentResetKey}
       ref={listRef}
+      testID="review-js-diff-list"
       data={listItems}
       drawDistance={500}
       estimatedItemSize={rowHeight}

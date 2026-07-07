@@ -15,6 +15,7 @@ import { createStaticNavigation, DarkTheme, DefaultTheme } from "@react-navigati
 import { RegistryContext } from "@effect/atom-react";
 import { useEffect } from "react";
 import { CloudAuthProvider } from "./features/cloud/CloudAuthProvider";
+import { MaestroAuthBypassBootstrap } from "./features/maestro/MaestroAuthBypassBootstrap";
 import { AppearancePreferencesProvider } from "./features/settings/appearance/AppearancePreferencesProvider";
 import { RootStack } from "./Stack";
 import { appAtomRegistry } from "./state/atom-registry";
@@ -43,6 +44,7 @@ export default function App() {
 
   return (
     <RegistryContext.Provider value={appAtomRegistry}>
+      <MaestroAuthBypassBootstrap />
       <CloudAuthProvider>
         <AppearancePreferencesProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>

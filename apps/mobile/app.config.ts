@@ -186,6 +186,12 @@ const config: ExpoConfig = {
   ],
   extra: {
     appVariant: APP_VARIANT,
+    maestro: {
+      authBypassEnabled:
+        APP_VARIANT !== "production" &&
+        (repoEnv.EXPO_PUBLIC_MAESTRO_AUTH_BYPASS === "1" ||
+          repoEnv.EXPO_PUBLIC_MAESTRO_AUTH_BYPASS === "true"),
+    },
     relay: {
       url: repoEnv.T3CODE_RELAY_URL ?? null,
     },

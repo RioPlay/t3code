@@ -407,7 +407,7 @@ export function HomeScreen(props: HomeScreenProps) {
   ) : null;
 
   return (
-    <View className="flex-1 bg-screen">
+    <View className="flex-1 bg-screen" testID="home-thread-list">
       {/* Sticky headers are deliberately not wired up: LegendList's JS sticky
           implementation mispositions pinned headers at mount under iOS
           automatic content insets (headers render one nav-inset too low until

@@ -509,6 +509,7 @@ export const ThreadListRow = memo(function ThreadListRow(props: {
   const rowContent = (close: () => void) =>
     compact ? (
       <Pressable
+        testID="home-thread-row"
         accessibilityHint="Swipe left for archive and delete actions"
         accessibilityLabel={thread.title}
         accessibilityRole="button"
@@ -560,6 +561,7 @@ export const ThreadListRow = memo(function ThreadListRow(props: {
       </Pressable>
     ) : (
       <Pressable
+        testID="home-thread-row"
         accessibilityHint="Opens the thread"
         accessibilityLabel={thread.title}
         accessibilityRole="button"
