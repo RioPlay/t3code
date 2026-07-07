@@ -22,6 +22,18 @@ Android currently implements the same view name (`T3TerminalSurface`) and event 
 React Native screen and RPC code stay platform-neutral. The renderer backend can be replaced with a
 future Android Ghostty build without changing JS.
 
+## WebView terminal security profile (T2 default on Android)
+
+When `capabilities.terminal.preferWebView` is true, the React Native screen uses bundled inline HTML
+with `@xterm/xterm` instead of this native view. Security gates:
+
+- **SEC-050:** Terminal WebView loads bundled inline HTML only — no remote `source.uri`.
+- **SEC-051:** `postMessage` bridge accepts only `{ type: "ready" | "input" | "resize" }`.
+- **SEC-052:** OSC 8 hyperlinks are stripped before writing terminal output; xterm link handlers are
+  not registered.
+
+Regenerate bundled assets with `vp run sync:terminal-webview` from `apps/mobile`.
+
 Vendored Ghostty revision and license details are in `THIRD_PARTY_NOTICES.md`.
 
 ## Rebuilding GhosttyKit

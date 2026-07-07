@@ -4,6 +4,18 @@ const expoMocks = vi.hoisted(() => ({
   requireNativeView: vi.fn(),
 }));
 
+const platformState = vi.hoisted(() => ({
+  OS: "ios" as "ios" | "android" | "web",
+}));
+
+vi.mock("react-native", () => ({
+  Platform: {
+    get OS() {
+      return platformState.OS;
+    },
+  },
+}));
+
 const nativeView = () => null;
 const originalExpo = globalThis.expo;
 
@@ -26,6 +38,7 @@ describe("resolvePlatformCapabilities", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    platformState.OS = "ios";
     globalThis.expo = undefined as unknown as typeof globalThis.expo;
     delete process.env.EXPO_PUBLIC_FORCE_JS_REVIEW;
     delete process.env.EXPO_PUBLIC_FORCE_NITRO_MARKDOWN;
@@ -68,6 +81,22 @@ describe("resolvePlatformCapabilities", () => {
     const caps = resolvePlatformCapabilities();
     expect(caps.terminal.preferWebView).toBe(true);
     expect(caps.terminal.native).toBe(false);
+  });
+
+  it("defaults terminal.preferWebView on Android when env is unset", async () => {
+    platformState.OS = "android";
+    const { resolvePlatformCapabilities } = await import("./capabilities");
+    const caps = resolvePlatformCapabilities();
+    expect(caps.terminal.preferWebView).toBe(true);
+    expect(caps.terminal.native).toBe(false);
+  });
+
+  it("allows disabling terminal WebView on Android via EXPO_PUBLIC_TERMINAL_WEBVIEW=0", async () => {
+    platformState.OS = "android";
+    process.env.EXPO_PUBLIC_TERMINAL_WEBVIEW = "0";
+    const { resolvePlatformCapabilities } = await import("./capabilities");
+    const caps = resolvePlatformCapabilities();
+    expect(caps.terminal.preferWebView).toBe(false);
   });
 
   it("returns review.native false without throwing when native view config is unavailable", async () => {
