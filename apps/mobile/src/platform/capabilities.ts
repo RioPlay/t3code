@@ -36,11 +36,25 @@ function readTruthyPublicEnv(name: string): boolean {
   return value === "1" || value === "true";
 }
 
+function hasNativeComposerEditor(): boolean {
+  try {
+    const config = (
+      globalThis as {
+        readonly expo?: { readonly getViewConfig?: (moduleName: string) => unknown };
+      }
+    ).expo?.getViewConfig?.("T3ComposerEditor");
+    return config != null;
+  } catch {
+    return false;
+  }
+}
+
 export function resolvePlatformCapabilities(): PlatformCapabilities {
   const forceJsReview = readTruthyPublicEnv("EXPO_PUBLIC_FORCE_JS_REVIEW");
   const forceNitroMarkdown = readTruthyPublicEnv("EXPO_PUBLIC_FORCE_NITRO_MARKDOWN");
   const preferTerminalWebView = readTruthyPublicEnv("EXPO_PUBLIC_TERMINAL_WEBVIEW");
   const chipModeEnv = readPublicEnv("EXPO_PUBLIC_COMPOSER_CHIP_MODE");
+  const nativeComposerAvailable = hasNativeComposerEditor();
 
   const nativeReviewAvailable = resolveNativeReviewDiffView() !== null;
   const nativeMarkdownSelectable = hasNativeSelectableMarkdownText();
@@ -63,7 +77,14 @@ export function resolvePlatformCapabilities(): PlatformCapabilities {
       preferWebView: preferTerminalWebView,
     },
     composer: {
-      chipMode: chipModeEnv === "strip" ? "strip" : "default",
+      chipMode:
+        chipModeEnv === "strip"
+          ? "strip"
+          : chipModeEnv === "default"
+            ? "default"
+            : nativeComposerAvailable
+              ? "default"
+              : "strip",
     },
   };
 }

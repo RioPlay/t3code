@@ -31,6 +31,8 @@ import { scopedThreadKey } from "../../lib/scopedEntities";
 
 import { AppText as Text } from "../../components/AppText";
 import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
+import { ComposerInlineTokenStrip } from "../../components/ComposerInlineTokenStrip";
+import { ComposerStripModeNotice } from "../../components/ComposerStripModeNotice";
 import {
   ComposerEditor,
   type ComposerEditorHandle,
@@ -45,6 +47,9 @@ import {
 import { ControlPill, ControlPillMenu } from "../../components/ControlPill";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import type { DraftComposerImageAttachment } from "../../lib/composerImages";
+import { removeComposerInlineToken } from "../../lib/composerInlineTokenEditing";
+import { useStableComposerInlineTokens } from "../../lib/useStableComposerInlineTokens";
+import { platformCapabilities } from "../../platform/capabilities";
 import { buildModelOptions, groupByProvider } from "../../lib/modelOptions";
 import { useScaledTextRole } from "../settings/appearance/useScaledTextRole";
 import type { RemoteClientConnectionState } from "../../lib/connection";
@@ -313,6 +318,28 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
       ) ?? null
     );
   }, [props.serverConfig, props.selectedThread.modelSelection.instanceId]);
+  const stripMode = platformCapabilities.composer.chipMode === "strip";
+  const inlineTokens = useStableComposerInlineTokens(props.draftMessage);
+  const skillLabels = useMemo(
+    () =>
+      new Map(
+        (selectedProviderStatus?.skills ?? []).map((skill) => [
+          skill.name,
+          skill.displayName?.trim() || skill.name,
+        ]),
+      ),
+    [selectedProviderStatus?.skills],
+  );
+  const [stripNoticeDismissed, setStripNoticeDismissed] = useState(false);
+  const showStripNotice =
+    stripMode && isExpanded && !stripNoticeDismissed && (inlineTokens.length > 0 || isFocused);
+  const handleRemoveInlineToken = useCallback(
+    (token: (typeof inlineTokens)[number]) => {
+      props.onChangeDraftMessage(removeComposerInlineToken(props.draftMessage, token));
+      inputRef.current?.focus();
+    },
+    [inputRef, props.draftMessage, props.onChangeDraftMessage],
+  );
 
   // ── Trigger detection ────────────────────────────────────
   const [composerSelection, setComposerSelection] = useState(() => ({
@@ -738,17 +765,35 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 }
           }
         >
-          {/* Attachment strip — inside the card, above the text input */}
+          {/* Strip-mode tokens and image attachments — above the text input */}
           {isExpanded ? (
             <Animated.View
               entering={FadeIn.duration(160)}
               exiting={FadeOut.duration(120)}
-              style={{ paddingBottom: props.draftAttachments.length > 0 ? 10 : 0 }}
+              style={{
+                gap: 10,
+                paddingBottom:
+                  inlineTokens.length > 0 || props.draftAttachments.length > 0 || showStripNotice
+                    ? 10
+                    : 0,
+              }}
             >
+              {showStripNotice ? (
+                <ComposerStripModeNotice onDismiss={() => setStripNoticeDismissed(true)} />
+              ) : null}
+              {stripMode ? (
+                <ComposerInlineTokenStrip
+                  skillLabels={skillLabels}
+                  tokens={inlineTokens}
+                  onPressToken={() => inputRef.current?.focus()}
+                  onRemove={handleRemoveInlineToken}
+                />
+              ) : null}
               <ComposerAttachmentStrip
                 attachments={props.draftAttachments}
                 onRemove={props.onRemoveDraftImage}
                 onPressImage={onPressImage}
+                removeButtonPlacement={stripMode ? "gutter" : "overlay"}
               />
             </Animated.View>
           ) : null}

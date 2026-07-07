@@ -89,4 +89,15 @@ describe("resolvePlatformCapabilities", () => {
     const { resolvePlatformCapabilities } = await import("./capabilities");
     expect(resolvePlatformCapabilities().composer.chipMode).toBe("strip");
   });
+
+  it("defaults composer chip mode to strip without native T3ComposerEditor", async () => {
+    const { resolvePlatformCapabilities } = await import("./capabilities");
+    expect(resolvePlatformCapabilities().composer.chipMode).toBe("strip");
+  });
+
+  it("defaults composer chip mode to default when native T3ComposerEditor resolves", async () => {
+    setExpoViewConfig(["T3ComposerEditor"]);
+    const { resolvePlatformCapabilities } = await import("./capabilities");
+    expect(resolvePlatformCapabilities().composer.chipMode).toBe("default");
+  });
 });
