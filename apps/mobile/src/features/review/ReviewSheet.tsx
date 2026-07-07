@@ -52,10 +52,8 @@ import { vcsEnvironment } from "../../state/vcs";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
 import { ThreadGitMenu } from "../threads/ThreadGitControls";
 import { useReviewCacheForThread } from "./reviewState";
-import {
-  type NativeReviewDiffViewHandle,
-  resolveNativeReviewDiffView,
-} from "../diffs/nativeReviewDiffSurface";
+import { type NativeReviewDiffViewHandle } from "../diffs/nativeReviewDiffSurface";
+import { resolveCapabilityGatedReviewDiffView } from "../../platform/capabilities";
 import { NATIVE_REVIEW_DIFF_CONTENT_WIDTH } from "./nativeReviewDiffAdapter";
 import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCodeSurface";
 import { useReviewDiffData } from "./useReviewDiffData";
@@ -386,7 +384,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
       selectedSection,
       draftMessage,
     });
-  const NativeReviewDiffView = resolveNativeReviewDiffView()!;
+  const NativeReviewDiffView = resolveCapabilityGatedReviewDiffView();
   const nativeReviewDiffViewRef = useRef<NativeReviewDiffViewHandle>(null);
   // Native pull-to-refresh on the diff surface (replaces the old Refresh menu item).
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
@@ -669,7 +667,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
               onRetry={handleRetryEnvironment}
             />
           </View>
-        ) : selectedSection && parsedDiff.kind === "files" ? (
+        ) : selectedSection && parsedDiff.kind === "files" && NativeReviewDiffView ? (
           <View
             className="flex-1"
             style={{
@@ -712,6 +710,27 @@ export function ReviewSheet(props: ReviewSheetProps) {
               </View>
             </View>
           </View>
+        ) : selectedSection && parsedDiff.kind === "files" ? (
+          <ScrollView
+            contentInsetAdjustmentBehavior="never"
+            contentInset={{ top: topContentInset, bottom: Math.max(insets.bottom, 18) + 18 }}
+            contentOffset={{ x: 0, y: -topContentInset }}
+            scrollIndicatorInsets={{
+              top: topContentInset,
+              bottom: Math.max(insets.bottom, 18) + 18,
+            }}
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+          >
+            {listHeader}
+            <View className="border-b border-border bg-card px-4 py-5">
+              <Text className="text-sm font-t3-bold text-foreground">Review diff (JavaScript)</Text>
+              <Text className="text-xs leading-normal text-foreground-muted">
+                Native review is unavailable on this platform. The JavaScript diff list loads in the
+                next milestone step.
+              </Text>
+            </View>
+          </ScrollView>
         ) : (
           <ScrollView
             contentInsetAdjustmentBehavior="never"
