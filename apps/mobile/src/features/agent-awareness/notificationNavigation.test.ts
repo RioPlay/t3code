@@ -5,6 +5,8 @@ import { consumeLastAgentNotificationResponse } from "./notificationResponseCons
 
 import {
   extractAgentNotificationDeepLink,
+  isAgentNotificationEnvironmentLinked,
+  parseAgentNotificationThreadTarget,
   routeAgentNotificationResponseOnce,
 } from "./notificationPayload";
 
@@ -154,7 +156,52 @@ describe("extractAgentNotificationDeepLink", () => {
   });
 });
 
+describe("parseAgentNotificationThreadTarget", () => {
+  it("extracts environment and thread ids from a normalized deep link", () => {
+    expect(parseAgentNotificationThreadTarget("/threads/env%201/thread%2F2")).toEqual({
+      environmentId: "env 1",
+      threadId: "thread/2",
+    });
+  });
+});
+
+describe("isAgentNotificationEnvironmentLinked", () => {
+  it("returns true when the environment is in the linked set", () => {
+    expect(
+      isAgentNotificationEnvironmentLinked("/threads/env-a/thread-1", new Set(["env-a"])),
+    ).toBe(true);
+  });
+
+  it("fails closed when the environment is not linked (SEC-040)", () => {
+    expect(
+      isAgentNotificationEnvironmentLinked("/threads/env-a/thread-1", new Set(["env-b"])),
+    ).toBe(false);
+  });
+});
+
 describe("routeAgentNotificationResponseOnce", () => {
+  it("blocks navigation for unlinked environments", () => {
+    const handledResponseIds = new Set<string>();
+    const navigations: Array<string> = [];
+    const blocked: Array<string> = [];
+    const response = responseWithData({
+      environmentId: "env-a",
+      threadId: "thread-1",
+    });
+
+    routeAgentNotificationResponseOnce({
+      handledResponseIds,
+      response,
+      isDeepLinkAuthorized: (deepLink) =>
+        isAgentNotificationEnvironmentLinked(deepLink, new Set(["env-b"])),
+      onUnauthorizedDeepLink: (deepLink) => blocked.push(deepLink),
+      navigate: (deepLink) => navigations.push(deepLink),
+    });
+
+    expect(navigations).toEqual([]);
+    expect(blocked).toEqual(["/threads/env-a/thread-1"]);
+  });
+
   it("does not navigate twice when the initial and listener responses refer to one notification", () => {
     const handledResponseIds = new Set<string>();
     const navigations: Array<string> = [];

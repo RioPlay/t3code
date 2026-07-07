@@ -18,6 +18,12 @@ vi.mock("react-native", () => ({
 }));
 
 vi.mock("expo-notifications", () => ({
+  AndroidImportance: {
+    HIGH: 4,
+    DEFAULT: 3,
+    LOW: 2,
+  },
+  setNotificationChannelAsync: vi.fn(() => Promise.resolve(null)),
   getPermissionsAsync: vi.fn(),
   requestPermissionsAsync: vi.fn(),
 }));
