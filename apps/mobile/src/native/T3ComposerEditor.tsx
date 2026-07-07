@@ -1,5 +1,6 @@
+import { collectComposerInlineTokens } from "@t3tools/shared/composerInlineTokens";
 import { TextInputWrapper } from "expo-paste-input";
-import { useImperativeHandle, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef } from "react";
 import { TextInput, type TextInput as RNTextInput } from "react-native";
 
 import { useThemeColor } from "../lib/useThemeColor";
@@ -22,6 +23,12 @@ export function ComposerEditor({
   const foregroundColor = useThemeColor("--color-foreground");
   const placeholderColor = useThemeColor("--color-placeholder");
   const handlePaste = useNativePaste((uris) => onPasteImages?.(uris));
+  const confirmedTokensRef = useRef(collectComposerInlineTokens(props.value));
+  useEffect(() => {
+    confirmedTokensRef.current = collectComposerInlineTokens(props.value, {
+      preserveTrailingFrom: confirmedTokensRef.current,
+    });
+  }, [props.value]);
 
   useImperativeHandle(
     ref,

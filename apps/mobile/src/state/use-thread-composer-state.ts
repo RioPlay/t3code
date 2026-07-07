@@ -14,6 +14,7 @@ import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
 import { deriveActiveWorkStartedAt } from "@t3tools/shared/orchestrationTiming";
 
 import { makeQueuedMessageMetadata } from "../lib/commandMetadata";
+import { collectComposerSendInlineTokens } from "../lib/composerSendPath";
 import {
   convertPastedImagesToAttachments,
   pasteComposerClipboard,
@@ -145,6 +146,8 @@ export function useThreadComposerState() {
     if (text.length === 0 && attachments.length === 0) {
       return null;
     }
+
+    collectComposerSendInlineTokens(text);
 
     const metadata = makeQueuedMessageMetadata();
     const messageId = MessageId.make(metadata.messageId);
