@@ -44,6 +44,7 @@ const config = RelayConfiguration.RelayConfiguration.of({
   cloudMintPublicKey: keyPair.publicKey,
   managedEndpointBaseDomain: undefined,
   managedEndpointNamespace: undefined,
+  stagingTestSecret: null,
 });
 const state: RelayAgentActivityState = {
   environmentId: "env" as RelayAgentActivityState["environmentId"],

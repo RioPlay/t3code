@@ -31,6 +31,7 @@ const config = RelayConfiguration.RelayConfiguration.of({
   cloudMintPublicKey: "cloud-public-key",
   managedEndpointBaseDomain: "t3code.test",
   managedEndpointNamespace: "dev_julius",
+  stagingTestSecret: null,
 });
 
 interface TunnelCall {

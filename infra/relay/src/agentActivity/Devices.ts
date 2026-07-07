@@ -79,8 +79,13 @@ export class Devices extends Context.Service<
     readonly listAndroidPushTargets: (input: {
       readonly userId: string;
     }) => Effect.Effect<ReadonlyArray<AndroidMobileTarget>, DeviceListPersistenceError>;
+    readonly findAndroidPushTargetByDeviceId: (input: {
+      readonly deviceId: string;
+    }) => Effect.Effect<AndroidMobileTarget | null, DeviceListPersistenceError>;
   }
 >()("t3code-relay/agentActivity/Devices") {}
+
+const encodeJsonValue = Schema.encodeEffect(Schema.UnknownFromJsonString);
 
 export const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
@@ -344,6 +349,46 @@ export const make = Effect.gen(function* () {
           preferences_json: JSON.stringify(row.preferences),
         }),
       );
+    }),
+    findAndroidPushTargetByDeviceId: Effect.fn(
+      "relay.devices.find_android_push_target_by_device_id",
+    )(function* (input) {
+      const rows = yield* db
+        .select({
+          userId: relayMobileDevices.userId,
+          deviceId: relayMobileDevices.deviceId,
+          pushToken: relayMobileDevices.pushToken,
+          preferences: relayMobileDevices.preferencesJson,
+        })
+        .from(relayMobileDevices)
+        .where(
+          and(
+            eq(relayMobileDevices.deviceId, input.deviceId),
+            eq(relayMobileDevices.platform, "android"),
+          ),
+        )
+        .limit(1)
+        .pipe(
+          Effect.mapError(
+            (cause) => new DeviceListPersistenceError({ userId: input.deviceId, cause }),
+          ),
+        );
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+      const preferences_json = yield* encodeJsonValue(row.preferences).pipe(
+        Effect.mapError(
+          (cause) => new DeviceListPersistenceError({ userId: input.deviceId, cause }),
+        ),
+      );
+      return {
+        user_id: row.userId,
+        device_id: row.deviceId,
+        platform: "android" as const,
+        push_token: row.pushToken,
+        preferences_json,
+      };
     }),
   });
 });

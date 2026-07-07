@@ -141,6 +141,7 @@ function makeLayer(input: {
           listForUser: () => Effect.succeed([]),
           listAndroidPushTargets: () =>
             Effect.succeed(input.currentAndroidTargets ?? [androidTarget]),
+          findAndroidPushTargetByDeviceId: () => Effect.succeed(null),
         }),
         Layer.succeed(LiveActivities.LiveActivities, {
           register: () => Effect.void,

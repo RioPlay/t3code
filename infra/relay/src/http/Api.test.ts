@@ -51,6 +51,7 @@ const relaySettings: RelayConfiguration.RelayConfiguration["Service"] = {
   cloudMintPublicKey: "cloud-mint-public-key",
   managedEndpointBaseDomain: undefined,
   managedEndpointNamespace: undefined,
+  stagingTestSecret: null,
 };
 
 describe("relay client authentication", () => {

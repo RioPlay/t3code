@@ -35,6 +35,7 @@ const config = RelayConfiguration.RelayConfiguration.of({
   cloudMintPublicKey: keyPair.publicKey,
   managedEndpointBaseDomain: undefined,
   managedEndpointNamespace: undefined,
+  stagingTestSecret: null,
 });
 
 const layer = RelayTokens.layer.pipe(Layer.provide(RelayConfiguration.layer(config)));
