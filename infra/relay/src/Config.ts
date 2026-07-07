@@ -36,6 +36,7 @@ export class RelayConfiguration extends Context.Service<
     readonly cloudMintPublicKey: string;
     readonly managedEndpointBaseDomain: string | undefined;
     readonly managedEndpointNamespace: string | undefined;
+    readonly stagingTestSecret: Redacted.Redacted<string> | null;
   }
 >()("t3code-relay/Config/RelayConfiguration") {}
 

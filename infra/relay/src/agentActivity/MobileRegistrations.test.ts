@@ -52,6 +52,7 @@ function makeDevices(
     unregister: () => Effect.void,
     listForUser: () => Effect.succeed([]),
     listAndroidPushTargets: () => Effect.succeed([]),
+    findAndroidPushTargetByDeviceId: () => Effect.succeed(null),
     ...overrides,
   };
 }

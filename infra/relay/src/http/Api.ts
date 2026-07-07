@@ -64,7 +64,12 @@ import * as EnvironmentLinker from "../environments/EnvironmentLinker.ts";
 import * as ManagedEndpointProvider from "../environments/ManagedEndpointProvider.ts";
 import * as ManagedEndpointAllocations from "../environments/ManagedEndpointAllocations.ts";
 import * as EnvironmentPublishSignatures from "../environments/EnvironmentPublishSignatures.ts";
+import * as MobileDeliveries from "../agentActivity/MobileDeliveries.ts";
 import * as MobileRegistrations from "../agentActivity/MobileRegistrations.ts";
+import {
+  StagingTestDeviceNotFound,
+  triggerStagingAgentPush,
+} from "../agentActivity/StagingTestPush.ts";
 import { withSpanAttributes } from "../observability.ts";
 import * as RelayDb from "../db.ts";
 
@@ -75,6 +80,7 @@ const relayCorsAllowedHeaders = [
   "traceparent",
   "content-type",
   "dpop",
+  "x-relay-staging-test-secret",
 ] as const;
 const relayCorsExposedHeaders = ["traceparent", "www-authenticate"] as const;
 
@@ -721,6 +727,91 @@ export const dpopClientApi = HttpApiBuilder.group(
           }),
         ),
       );
+  }),
+);
+
+const relayDeliveryJobInternalError = (_error: unknown, traceId: string) =>
+  new RelayInternalError({
+    code: "internal_error",
+    reason: "internal_error",
+    traceId,
+  });
+
+const relayDeliveryQueueUpstreamError = (_error: unknown, traceId: string) =>
+  new RelayInternalError({
+    code: "internal_error",
+    reason: "upstream_unavailable",
+    traceId,
+  });
+
+export const stagingTestApi = HttpApiBuilder.group(
+  RelayApi,
+  "stagingTest",
+  Effect.fnUntraced(function* (handlers) {
+    const config = yield* RelayConfiguration.RelayConfiguration;
+    const devices = yield* Devices.Devices;
+    const mobileDeliveries = yield* MobileDeliveries.MobileDeliveries;
+    return handlers.handle(
+      "triggerAgentPush",
+      Effect.fn("relay.api.stagingTest.triggerAgentPush")(
+        function* (args) {
+          const request = yield* HttpServerRequest.HttpServerRequest;
+          const secretHeader = request.headers["x-relay-staging-test-secret"];
+          const { payload } = args;
+
+          if (!config.stagingTestSecret || !config.fcmDeliveryEnabled) {
+            return yield* relayInternalErrorResponse("internal_error");
+          }
+          if (
+            typeof secretHeader !== "string" ||
+            Redacted.value(config.stagingTestSecret) !== secretHeader
+          ) {
+            return yield* relayAuthInvalidError("not_authorized");
+          }
+
+          return yield* triggerStagingAgentPush({
+            deviceId: payload.deviceId,
+            environmentId: payload.environmentId,
+            threadId: payload.threadId,
+            phase: payload.phase ?? "waiting_for_approval",
+          }).pipe(
+            Effect.provideService(Devices.Devices, devices),
+            Effect.provideService(MobileDeliveries.MobileDeliveries, mobileDeliveries),
+          );
+        },
+        mapErrorTags({
+          StagingTestDeviceNotFound: (_error, traceId) =>
+            new RelayInternalError({
+              code: "internal_error",
+              reason: "internal_error",
+              traceId,
+            }),
+          ApnsDeliveryJobQueuePayloadInvalid: relayDeliveryJobInternalError,
+          ApnsDeliveryJobLiveActivityAggregateMissing: relayDeliveryJobInternalError,
+          ApnsDeliveryJobLiveActivityNotificationUnexpected: relayDeliveryJobInternalError,
+          ApnsDeliveryJobPushNotificationMissing: relayDeliveryJobInternalError,
+          ApnsDeliveryJobPushNotificationAggregateUnexpected: relayDeliveryJobInternalError,
+          ApnsDeliveryJobCreatedAtInvalid: relayDeliveryJobInternalError,
+          ApnsDeliveryJobExpiresAtInvalid: relayDeliveryJobInternalError,
+          ApnsDeliveryJobTimeWindowInvalid: relayDeliveryJobInternalError,
+          ApnsDeliveryJobTimeWindowTooLong: relayDeliveryJobInternalError,
+          ApnsDeliveryJobSignatureInvalid: relayDeliveryJobInternalError,
+          ApnsDeliveryJobExpired: relayDeliveryJobInternalError,
+          ApnsDeliveryJobClaimInFlight: relayDeliveryJobInternalError,
+          ApnsDeliveryQueueSendError: relayDeliveryQueueUpstreamError,
+          FcmDeliveryJobQueuePayloadInvalid: relayDeliveryJobInternalError,
+          FcmDeliveryJobCreatedAtInvalid: relayDeliveryJobInternalError,
+          FcmDeliveryJobExpiresAtInvalid: relayDeliveryJobInternalError,
+          FcmDeliveryJobTimeWindowInvalid: relayDeliveryJobInternalError,
+          FcmDeliveryJobTimeWindowTooLong: relayDeliveryJobInternalError,
+          FcmDeliveryJobSignatureInvalid: relayDeliveryJobInternalError,
+          FcmDeliveryJobExpired: relayDeliveryJobInternalError,
+          FcmDeliveryJobClaimInFlight: relayDeliveryJobInternalError,
+          FcmDeliveryQueueSendError: relayDeliveryQueueUpstreamError,
+        }),
+        mapRelayCommonApiErrors("not_authorized"),
+      ),
+    );
   }),
 );
 

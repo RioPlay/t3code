@@ -25,6 +25,7 @@ export function testRelayConfiguration(
     cloudMintPublicKey: "cloud-public-key",
     managedEndpointBaseDomain: undefined,
     managedEndpointNamespace: undefined,
+    stagingTestSecret: null,
     ...overrides,
   };
 }

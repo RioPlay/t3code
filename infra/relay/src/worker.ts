@@ -27,6 +27,7 @@ import {
   relayEnvironmentAuthLayer,
   relayNotFoundRoute,
   serverApi,
+  stagingTestApi,
   traceRelayHttpRequestWith,
   tokenApi,
   withoutCapturedParentSpan,
@@ -90,6 +91,7 @@ const relayApiLayer = Layer.mergeAll(
   tokenApi,
   dpopClientApi,
   serverApi,
+  stagingTestApi,
 );
 
 const CloudMintKeyPair = Alchemy.KeyPair("CloudMintKeyPair");
@@ -155,6 +157,9 @@ export default class Api extends Cloudflare.Worker<Api>()(
     const fcmDeliveryEnabled = yield* Config.boolean("RELAY_FCM_DELIVERY_ENABLED").pipe(
       Config.withDefault(false),
     );
+    const stagingTestSecret = yield* Config.redacted("RELAY_STAGING_TEST_SECRET").pipe(
+      Effect.option,
+    );
 
     const clerkSecretKey = yield* Config.redacted("CLERK_SECRET_KEY");
     const clerkPublishableKey = yield* Config.string("CLERK_PUBLISHABLE_KEY");
@@ -208,6 +213,7 @@ export default class Api extends Cloudflare.Worker<Api>()(
         cloudMintPublicKey: yield* cloudMintPublicKey,
         managedEndpointBaseDomain: yield* managedEndpointZoneName,
         managedEndpointNamespace: stage,
+        stagingTestSecret: stagingTestSecret._tag === "Some" ? stagingTestSecret.value : null,
       });
     });
 

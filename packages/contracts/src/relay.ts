@@ -1016,6 +1016,39 @@ export const RelayDpopClientGroup = HttpApiGroup.make("dpopClient")
   .annotate(OpenApi.Description, "DPoP-authenticated client access to linked environments.")
   .middleware(RelayDpopClientAuth);
 
+export const RelayStagingTestPushRequest = Schema.Struct({
+  deviceId: TrimmedNonEmptyString,
+  environmentId: EnvironmentId,
+  threadId: ThreadId,
+  phase: Schema.optional(RelayAgentAwarenessPhase),
+}).annotate({
+  description: "Triggers a staging-only FCM push for Maestro/CI harnesses (QA-010).",
+});
+export type RelayStagingTestPushRequest = typeof RelayStagingTestPushRequest.Type;
+
+export const RelayStagingTestPushResponse = Schema.Struct({
+  ok: Schema.Literal(true),
+  phase: RelayAgentAwarenessPhase,
+  delivery: Schema.NullOr(RelayDeliveryResult),
+});
+export type RelayStagingTestPushResponse = typeof RelayStagingTestPushResponse.Type;
+
+export const RelayStagingTestGroup = HttpApiGroup.make("stagingTest")
+  .add(
+    HttpApiEndpoint.post("triggerAgentPush", "/v1/staging/test/agent-push", {
+      payload: RelayStagingTestPushRequest,
+      success: RelayStagingTestPushResponse,
+      error: Schema.Union([RelayAuthInvalidError, RelayInternalError]),
+    }).annotate(
+      OpenApi.Summary,
+      "Trigger a staging agent push notification for a registered Android device",
+    ),
+  )
+  .annotate(
+    OpenApi.Description,
+    "Staging-only test hook. Disabled unless RELAY_STAGING_TEST_SECRET is configured on the worker.",
+  );
+
 export const RelayServerGroup = HttpApiGroup.make("server")
   .add(
     HttpApiEndpoint.post(
@@ -1044,6 +1077,7 @@ export const RelayApi = HttpApi.make("RelayApi")
     RelayTokenGroup,
     RelayDpopClientGroup,
     RelayServerGroup,
+    RelayStagingTestGroup,
   )
   .annotate(OpenApi.Title, "T3 Code Relay API")
   .annotate(OpenApi.Version, "1.0.0")

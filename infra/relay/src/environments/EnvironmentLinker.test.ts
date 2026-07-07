@@ -49,6 +49,7 @@ const config = RelayConfiguration.RelayConfiguration.of({
   cloudMintPublicKey: relayKeyPair.publicKey,
   managedEndpointBaseDomain: undefined,
   managedEndpointNamespace: undefined,
+  stagingTestSecret: null,
 });
 const isEnvironmentLinkProofInvalid = Schema.is(EnvironmentLinker.EnvironmentLinkProofInvalid);
 

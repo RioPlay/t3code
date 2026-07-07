@@ -82,6 +82,7 @@ const settings = RelayConfiguration.RelayConfiguration.of({
   cloudMintPublicKey: cloudKeyPair.publicKey,
   managedEndpointBaseDomain: "example.test",
   managedEndpointNamespace: undefined,
+  stagingTestSecret: null,
 });
 
 function signTestJwt(payload: object, typ: string, privateKey: string): string {
