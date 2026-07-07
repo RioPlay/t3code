@@ -29,6 +29,9 @@ dist-electron/
 .electron-runtime/
 node_modules/
 .alchemy/
+.aden/
+.grok-worktrees/
+scratch/android-parity/loop-state.json
 *.log
 .env*
 !.env.example
