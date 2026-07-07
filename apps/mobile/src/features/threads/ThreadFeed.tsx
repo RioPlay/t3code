@@ -54,11 +54,14 @@ import Animated, {
 import { useThemeColor } from "../../lib/useThemeColor";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import {
-  hasNativeSelectableMarkdownText,
   SelectableMarkdownText,
   type NativeMarkdownTextStyle,
   type SelectableMarkdownSkill,
 } from "../../native/SelectableMarkdownText";
+import {
+  resolveCapabilityGatedReviewDiffView,
+  shouldUseNativeSelectableMarkdown,
+} from "../../platform/capabilities";
 
 import { AppText as Text } from "../../components/AppText";
 import { CopyTextButton } from "../../components/CopyTextButton";
@@ -66,7 +69,6 @@ import {
   parseReviewCommentMessageSegments,
   type ReviewInlineComment,
 } from "../review/reviewCommentSelection";
-import { resolveNativeReviewDiffView } from "../diffs/nativeReviewDiffSurface";
 import {
   buildNativeReviewDiffData,
   createNativeReviewDiffTheme,
@@ -837,7 +839,7 @@ function renderFeedEntry(
         {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
       >
         {message.text.trim().length > 0 ? (
-          hasNativeSelectableMarkdownText() ? (
+          shouldUseNativeSelectableMarkdown() ? (
             <SelectableMarkdownText
               markdown={message.text}
               skills={props.skills}
@@ -906,7 +908,7 @@ function UserMessageContent(props: {
   const segments = parseReviewCommentMessageSegments(props.text);
   const hasReviewComment = segments.some((segment) => segment.kind === "review-comment");
   if (!hasReviewComment) {
-    if (hasNativeSelectableMarkdownText()) {
+    if (shouldUseNativeSelectableMarkdown()) {
       return (
         <SelectableMarkdownText
           markdown={props.text}
@@ -947,7 +949,7 @@ function UserMessageContent(props: {
           return null;
         }
 
-        return hasNativeSelectableMarkdownText() ? (
+        return shouldUseNativeSelectableMarkdown() ? (
           <SelectableMarkdownText
             key={segment.id}
             markdown={text}
@@ -979,7 +981,7 @@ const ReviewCommentCard = memo(function ReviewCommentCard(props: {
   const { codeSurface, nativeReviewDiffStyle } = useAppearanceCodeSurface();
   const colorScheme = useColorScheme();
   const appearanceScheme = colorScheme === "light" ? "light" : "dark";
-  const NativeReviewDiffView = resolveNativeReviewDiffView();
+  const NativeReviewDiffView = resolveCapabilityGatedReviewDiffView();
   const patch = useMemo(() => buildReviewCommentPatch(props.comment), [props.comment]);
   const parsedDiff = useMemo(
     () => buildReviewParsedDiff(patch, `thread-review-comment:${props.comment.id}`),

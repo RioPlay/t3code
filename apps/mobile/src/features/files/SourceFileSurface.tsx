@@ -13,10 +13,8 @@ import {
 
 import { AppText as Text } from "../../components/AppText";
 import { LoadingStrip } from "../../components/LoadingStrip";
-import {
-  type NativeReviewDiffViewProps,
-  resolveNativeReviewDiffView,
-} from "../diffs/nativeReviewDiffSurface";
+import { type NativeReviewDiffViewProps } from "../diffs/nativeReviewDiffSurface";
+import { resolveCapabilityGatedReviewDiffView } from "../../platform/capabilities";
 import { createNativeReviewDiffTheme } from "../review/nativeReviewDiffAdapter";
 import { REVIEW_MONO_FONT_FAMILY, renderVisibleWhitespace } from "../review/reviewDiffRendering";
 import type { ReviewHighlightedToken } from "../review/shikiReviewHighlighter";
@@ -282,7 +280,7 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
 }
 
 export function SourceFileSurface(props: SourceFileSurfaceProps) {
-  const NativeView = resolveNativeReviewDiffView();
+  const NativeView = resolveCapabilityGatedReviewDiffView();
   return NativeView ? (
     <NativeSourceFileSurface {...props} NativeView={NativeView} />
   ) : (
