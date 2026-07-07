@@ -2,6 +2,7 @@ import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
 import { useNavigation } from "@react-navigation/native";
 import { useMemo, useState } from "react";
+import { View } from "react-native";
 
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useProjects, useThreadShells } from "../../state/entities";
@@ -61,7 +62,7 @@ export function HomeRouteScreen() {
   // an empty detail pane so selecting a thread never transitions layouts.
   if (layout.usesSplitView) {
     return (
-      <>
+      <View testID="home-screen" style={{ flex: 1 }}>
         <NativeStackScreenOptions options={{ title: "", headerTitle: "" }} />
         <WorkspaceSidebarToolbar
           afterSidebarButton={
@@ -75,12 +76,12 @@ export function HomeRouteScreen() {
         <WorkspaceEmptyDetail
           onStartNewTask={() => navigation.navigate("NewTaskSheet", { screen: "NewTask" })}
         />
-      </>
+      </View>
     );
   }
 
   return (
-    <>
+    <View testID="home-screen" style={{ flex: 1 }}>
       {/* Restore the compact title in case the split branch blanked it. */}
       <NativeStackScreenOptions options={{ title: "Threads", headerTitle: "Threads" }} />
       <HomeHeader
@@ -144,6 +145,6 @@ export function HomeRouteScreen() {
         threads={threads}
         threadSortOrder={listOptions.threadSortOrder}
       />
-    </>
+    </View>
   );
 }

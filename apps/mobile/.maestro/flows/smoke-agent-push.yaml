@@ -1,0 +1,17 @@
+appId: ${APP_ID}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+- runScript:
+    file: ../scripts/seed-relay-push.sh
+    optional: true
+    env:
+      RELAY_TEST_DEVICE_ID: ${RELAY_TEST_DEVICE_ID}
+      RELAY_TEST_ENVIRONMENT_ID: ${RELAY_TEST_ENVIRONMENT_ID}
+      RELAY_TEST_THREAD_ID: maestro-test-thread
+- pressKey: Home
+- tapOn:
+    text: "Waiting for approval"
+    optional: true
+- assertVisible:
+    id: "thread-screen"
+    optional: true

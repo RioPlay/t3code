@@ -1,4 +1,13 @@
-# Maestro config — expanded in step s15
+# Maestro harness — M1 smoke flows (QA-006 / QA-012)
 appId: com.t3tools.t3code.dev
 env:
+  APP_ID: com.t3tools.t3code.dev
   MAESTRO_AUTH_BYPASS: ${EXPO_PUBLIC_MAESTRO_AUTH_BYPASS}
+  RELAY_STAGING_URL: ${RELAY_STAGING_URL}
+  RELAY_STAGING_TEST_SECRET: ${RELAY_STAGING_TEST_SECRET}
+  RELAY_TEST_DEVICE_ID: ${RELAY_TEST_DEVICE_ID}
+  RELAY_TEST_ENVIRONMENT_ID: ${RELAY_TEST_ENVIRONMENT_ID}
+flows:
+  - flows/smoke-launch.yaml
+  - flows/smoke-review.yaml
+  - flows/smoke-agent-push.yaml

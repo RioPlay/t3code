@@ -677,7 +677,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
         </NativeHeaderToolbar>
       ) : null}
 
-      <View className="flex-1 bg-sheet">
+      <View className="flex-1 bg-sheet" testID="review-sheet">
         {showConnectionNotice ? (
           <View style={{ flex: 1, paddingTop: topContentInset }}>
             <EnvironmentConnectionNotice

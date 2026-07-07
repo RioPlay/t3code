@@ -69,6 +69,11 @@ import {
   type ThreadInspectorMode,
 } from "./thread-inspector-content-stack";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import {
+  isMaestroAuthBypassEnabled,
+  MAESTRO_FIXTURE_ENVIRONMENT_ID,
+  MAESTRO_FIXTURE_THREAD_ID,
+} from "../maestro/maestroAuthBypass";
 
 interface ThreadInspectorSelection {
   readonly routeThreadIdentity: string | null;
@@ -680,7 +685,20 @@ function ThreadRouteContent(
 
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
 
-      <View className="flex-1 bg-screen">
+      <View className="flex-1 bg-screen" testID="thread-screen">
+        {isMaestroAuthBypassEnabled() ? (
+          <Pressable
+            accessibilityLabel="Open review"
+            testID="thread-accessory-review"
+            onPress={() =>
+              navigation.navigate("ThreadReview", {
+                environmentId: MAESTRO_FIXTURE_ENVIRONMENT_ID,
+                threadId: MAESTRO_FIXTURE_THREAD_ID,
+              })
+            }
+            style={{ height: 1, opacity: 0, position: "absolute", width: 1 }}
+          />
+        ) : null}
         <ThreadDetailScreen
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
           contentPresentation={contentPresentation}
