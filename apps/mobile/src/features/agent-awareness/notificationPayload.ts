@@ -69,6 +69,42 @@ function normalizeThreadDeepLink(value: string): string | null {
   }
 }
 
+export function parseAgentNotificationThreadTarget(
+  deepLink: string,
+): { readonly environmentId: string; readonly threadId: string } | null {
+  const normalized = normalizeThreadDeepLink(deepLink);
+  if (!normalized) {
+    return null;
+  }
+  const parts = normalized.split("/");
+  if (parts.length !== 4) {
+    return null;
+  }
+  try {
+    const environmentId = decodeURIComponent(parts[2] ?? "");
+    const threadId = decodeURIComponent(parts[3] ?? "");
+    if (environmentId.length === 0 || threadId.length === 0) {
+      return null;
+    }
+    return { environmentId, threadId };
+  } catch {
+    return null;
+  }
+}
+
+export function isAgentNotificationEnvironmentLinked(
+  deepLink: string,
+  linkedEnvironmentIds: ReadonlySet<string> | ReadonlyArray<string>,
+): boolean {
+  const target = parseAgentNotificationThreadTarget(deepLink);
+  if (!target) {
+    return false;
+  }
+  const linked =
+    linkedEnvironmentIds instanceof Set ? linkedEnvironmentIds : new Set(linkedEnvironmentIds);
+  return linked.has(target.environmentId);
+}
+
 export function extractAgentNotificationDeepLink(response: unknown): string | null {
   const data = dataFromNotificationResponse(response);
   const deepLink = data?.deepLink;
@@ -90,6 +126,8 @@ export function extractAgentNotificationDeepLink(response: unknown): string | nu
 export function routeAgentNotificationResponseOnce(input: {
   readonly handledResponseIds: Set<string>;
   readonly response: unknown;
+  readonly isDeepLinkAuthorized?: (deepLink: string) => boolean;
+  readonly onUnauthorizedDeepLink?: (deepLink: string) => void;
   readonly navigate: (deepLink: string) => void;
 }): void {
   const responseId = identifierFromNotificationResponse(input.response);
@@ -100,7 +138,12 @@ export function routeAgentNotificationResponseOnce(input: {
     input.handledResponseIds.add(responseId);
   }
   const deepLink = extractAgentNotificationDeepLink(input.response);
-  if (deepLink) {
-    input.navigate(deepLink);
+  if (!deepLink) {
+    return;
   }
+  if (input.isDeepLinkAuthorized && !input.isDeepLinkAuthorized(deepLink)) {
+    input.onUnauthorizedDeepLink?.(deepLink);
+    return;
+  }
+  input.navigate(deepLink);
 }

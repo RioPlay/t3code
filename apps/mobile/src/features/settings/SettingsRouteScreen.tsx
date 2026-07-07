@@ -123,7 +123,7 @@ function ConfiguredSettingsRouteScreen() {
   }, [isLoaded, isSignedIn, user?.primaryEmailAddress?.emailAddress]);
 
   const refreshNotifications = useCallback(async () => {
-    if (process.env.EXPO_OS !== "ios") {
+    if (Platform.OS !== "ios" && Platform.OS !== "android") {
       setNotificationStatus("unsupported");
       return;
     }
@@ -184,7 +184,9 @@ function ConfiguredSettingsRouteScreen() {
       setNotificationStatus("enabled");
       Alert.alert(
         "Notifications enabled",
-        "Live Activity notifications are enabled for this device.",
+        Platform.OS === "android"
+          ? "Agent push notifications are enabled for this device."
+          : "Live Activity notifications are enabled for this device.",
       );
       return;
     }
@@ -192,7 +194,7 @@ function ConfiguredSettingsRouteScreen() {
       setNotificationStatus("unsupported");
       Alert.alert(
         "Notifications unavailable",
-        "Live Activity notifications are only available on iOS.",
+        "Agent notifications are not supported on this platform.",
       );
       return;
     }
@@ -288,7 +290,9 @@ function ConfiguredSettingsRouteScreen() {
 
       Alert.alert(
         "Disable notifications",
-        "Notification permission is controlled by iOS. Open Settings to disable notifications for T3 Code.",
+        Platform.OS === "android"
+          ? "Notification permission is controlled by Android. Open Settings to disable notifications for T3 Code."
+          : "Notification permission is controlled by iOS. Open Settings to disable notifications for T3 Code.",
         [
           { text: "Cancel", style: "cancel" },
           { text: "Open Settings", onPress: () => void Linking.openSettings() },

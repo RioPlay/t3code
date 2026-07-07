@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Platform } from "react-native";
 
+import { ensureAgentNotificationChannels } from "./notificationChannels";
+
 export type NotificationPermissionResult =
   | { readonly type: "unsupported" }
   | { readonly type: "granted" }
@@ -60,6 +62,12 @@ export const requestAgentNotificationPermission: Effect.Effect<
     catch: (cause) => new NotificationPermissionReadError({ cause }),
   });
   if (existing.granted) {
+    if (Platform.OS === "android") {
+      yield* Effect.tryPromise({
+        try: () => ensureAgentNotificationChannels(),
+        catch: (cause) => new NotificationPermissionRequestError({ cause }),
+      });
+    }
     return { type: "granted" };
   }
 
@@ -71,7 +79,12 @@ export const requestAgentNotificationPermission: Effect.Effect<
     try: () => requestNotificationPermissions(),
     catch: (cause) => new NotificationPermissionRequestError({ cause }),
   });
-  return requested.granted
-    ? { type: "granted" }
-    : { type: "denied", canAskAgain: requested.canAskAgain };
+  if (requested.granted) {
+    yield* Effect.tryPromise({
+      try: () => ensureAgentNotificationChannels(),
+      catch: (cause) => new NotificationPermissionRequestError({ cause }),
+    });
+    return { type: "granted" };
+  }
+  return { type: "denied", canAskAgain: requested.canAskAgain };
 });
