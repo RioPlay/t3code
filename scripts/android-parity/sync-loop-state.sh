@@ -39,6 +39,8 @@ declare -A PR_TO_STEP=(
 
 MERGED_JSON="$(NO_COLOR=1 gh pr list "${GH_REPO_ARGS[@]}" --state merged --limit 50 --json number,url,mergedAt 2>/dev/null \
   | sed 's/\x1b\[[0-9;]*m//g')"
+CLOSED_JSON="$(NO_COLOR=1 gh pr list "${GH_REPO_ARGS[@]}" --state closed --limit 50 --json number,state 2>/dev/null \
+  | sed 's/\x1b\[[0-9;]*m//g')"
 
 if [[ -z "$MERGED_JSON" || "$MERGED_JSON" == "[]" ]]; then
   echo "No merged PRs found on ${FORK:-default repo}" >&2
@@ -75,7 +77,9 @@ if [[ "$PHASE" == "post_program" ]]; then
     pr_num="$(jq -r --arg s "$pp" '.post_program.steps[$s].pr // empty' "$CONFIG_FILE")"
     required="$(jq -r --arg s "$pp" '.post_program.steps[$s].required // false' "$CONFIG_FILE")"
     optional_status="$(jq -r --arg s "$pp" '.post_program.steps[$s].status // empty' "$CONFIG_FILE")"
-    if [[ "$optional_status" == "optional" && "$required" != "true" ]]; then
+    if [[ "$optional_status" == "superseded" && "$required" != "true" ]]; then
+      BASE="$(echo "$BASE" | jq --arg s "$pp" '.steps[$s].status = "superseded"')"
+    elif [[ "$optional_status" == "optional" && "$required" != "true" ]]; then
       BASE="$(echo "$BASE" | jq --arg s "$pp" '.steps[$s].status = "optional"')"
     fi
     if [[ -n "$pr_num" ]]; then
@@ -84,22 +88,27 @@ if [[ "$PHASE" == "post_program" ]]; then
       if [[ -n "$url" && "$url" != "null" ]]; then
         BASE="$(echo "$BASE" | jq --arg s "$pp" --arg url "$url" --arg merged "$merged" \
           '.steps[$s] = {status: "merged", pr: $url, merged_at: $merged}')"
+      else
+        closed_state="$(echo "$CLOSED_JSON" | jq -r --argjson n "$pr_num" '.[] | select(.number == $n) | .state' 2>/dev/null || true)"
+        if [[ "$closed_state" == "CLOSED" && "$required" != "true" ]]; then
+          BASE="$(echo "$BASE" | jq --arg s "$pp" '.steps[$s] = {status: "superseded", pr: null, merged_at: null}')"
+        fi
       fi
     fi
   done
-  # First pending required post-program step becomes current.
+  # Resolve current post-program step.
+  CURRENT_STEP="done"
   for pp in $(jq -r '.post_program.steps | to_entries | sort_by(.key) | .[].key' "$CONFIG_FILE"); do
     status="$(echo "$BASE" | jq -r --arg s "$pp" '.steps[$s].status')"
     required="$(jq -r --arg s "$pp" '.post_program.steps[$s].required // false' "$CONFIG_FILE")"
+    opt="$(jq -r --arg s "$pp" '.post_program.steps[$s].status // empty' "$CONFIG_FILE")"
     if [[ "$status" == "pending" && "$required" == "true" ]]; then
       CURRENT_STEP="$pp"
       break
     fi
-    if [[ "$status" == "pending" && "$required" != "true" ]]; then
-      continue
-    fi
-    if [[ "$status" == "merged" ]]; then
+    if [[ "$status" == "pending" && "$required" != "true" && "$opt" == "superseded" ]]; then
       CURRENT_STEP="$pp"
+      break
     fi
   done
   # If all required merged, advance to done.

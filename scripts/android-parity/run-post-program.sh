@@ -45,7 +45,6 @@ find_current_step() {
     echo "$ONLY_STEP"
     return
   fi
-  scripts/android-parity/sync-loop-state.sh >/dev/null
   local current
   current="$(jq -r '.current_step' "$STATE_FILE")"
   if [[ "$current" != "done" ]]; then
@@ -155,6 +154,7 @@ process_step() {
 }
 
 # Main loop
+scripts/android-parity/sync-loop-state.sh
 while true; do
   CURRENT="$(find_current_step)"
   if [[ "$CURRENT" == "done" ]]; then
