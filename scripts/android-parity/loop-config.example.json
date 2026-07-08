@@ -30,25 +30,31 @@
         "required": true
       },
       "pp02": {
+        "pr": 32,
+        "branch": "feat/android-post-program-loop",
+        "title": "Post-program loop scripts",
+        "required": true
+      },
+      "pp03": {
         "pr": 28,
         "branch": "android-parity/s05-terminal-default",
         "title": "Native terminal default (optional stretch)",
         "required": false,
-        "status": "optional"
+        "status": "superseded"
       },
-      "pp03": {
+      "pp04": {
         "pr": 29,
         "branch": "android-parity/s07-composer-strip-polish",
         "title": "Composer strip polish (optional stretch)",
         "required": false,
-        "status": "optional"
+        "status": "superseded"
       },
-      "pp04": {
+      "pp05": {
         "pr": 30,
         "branch": "android-parity/s08-native-composer-scaffold",
         "title": "Native composer scaffold (optional stretch)",
         "required": false,
-        "status": "optional"
+        "status": "superseded"
       }
     }
   },
