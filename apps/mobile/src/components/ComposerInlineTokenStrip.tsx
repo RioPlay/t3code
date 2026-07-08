@@ -2,12 +2,16 @@ import { markdownFileIconSource } from "@t3tools/mobile-markdown-text/file-icons
 import { resolveMarkdownFileIcon } from "@t3tools/mobile-markdown-text/links";
 import type { ComposerInlineToken } from "@t3tools/shared/composerInlineTokens";
 import { SymbolView } from "expo-symbols";
-import { Image, Pressable, ScrollView, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, View } from "react-native";
 
 import { AppText as Text } from "./AppText";
+import { truncateMiddle } from "../lib/truncateMiddle";
 import { useThemeColor } from "../lib/useThemeColor";
 
 const CHIP_HEIGHT = 48;
+const CHIP_BORDER_RADIUS = 12;
+const CHIP_LABEL_MAX_LENGTH = 28;
+const REMOVE_BUTTON_SIZE = 24;
 
 export interface ComposerInlineTokenStripProps {
   readonly tokens: ReadonlyArray<ComposerInlineToken>;
@@ -46,12 +50,13 @@ export function ComposerInlineTokenStrip(props: ComposerInlineTokenStripProps) {
       horizontal
       keyboardShouldPersistTaps="always"
       showsHorizontalScrollIndicator={false}
-      style={{ flexGrow: 0 }}
+      style={{ flexGrow: 0, marginBottom: 8 }}
     >
       <View style={{ flexDirection: "row", gap: 8 }}>
         {props.tokens.map((token) => {
           const isSkill = token.type === "skill";
           const label = tokenLabel(token, skillLabels);
+          const displayLabel = truncateMiddle(label, CHIP_LABEL_MAX_LENGTH);
           const iconSource =
             token.type === "mention"
               ? markdownFileIconSource(resolveMarkdownFileIcon(token.value))
@@ -68,6 +73,16 @@ export function ComposerInlineTokenStrip(props: ComposerInlineTokenStripProps) {
             >
               <Pressable
                 accessibilityLabel={`${isSkill ? "Skill" : "File"} ${label}`}
+                onLongPress={() => {
+                  Alert.alert("Remove attachment?", label, [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Remove",
+                      style: "destructive",
+                      onPress: () => props.onRemove(token),
+                    },
+                  ]);
+                }}
                 onPress={props.onPressToken ? () => props.onPressToken!(token) : undefined}
                 style={{
                   flexDirection: "row",
@@ -75,7 +90,7 @@ export function ComposerInlineTokenStrip(props: ComposerInlineTokenStripProps) {
                   gap: 8,
                   minHeight: CHIP_HEIGHT,
                   paddingHorizontal: 12,
-                  borderRadius: 14,
+                  borderRadius: CHIP_BORDER_RADIUS,
                   borderWidth: 1,
                   borderColor: isSkill ? skillBorder : borderColor,
                   backgroundColor: isSkill ? skillBackground : subtleBg,
@@ -87,21 +102,22 @@ export function ComposerInlineTokenStrip(props: ComposerInlineTokenStripProps) {
                     style={{ width: 18, height: 18 }}
                     resizeMode="contain"
                   />
-                ) : (
+                ) : isSkill ? (
                   <SymbolView
-                    name="sparkles"
+                    name="bolt.fill"
                     size={16}
                     tintColor={skillText}
                     type="monochrome"
                     weight="medium"
                   />
-                )}
+                ) : null}
                 <Text
                   className="text-sm font-t3-medium"
-                  style={{ color: isSkill ? skillText : foreground }}
+                  ellipsizeMode="middle"
                   numberOfLines={1}
+                  style={{ color: isSkill ? skillText : foreground, maxWidth: 180 }}
                 >
-                  {label}
+                  {displayLabel}
                 </Text>
               </Pressable>
               <Pressable
@@ -110,9 +126,9 @@ export function ComposerInlineTokenStrip(props: ComposerInlineTokenStripProps) {
                 onPress={() => props.onRemove(token)}
                 style={{
                   marginLeft: 6,
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
+                  width: REMOVE_BUTTON_SIZE,
+                  height: REMOVE_BUTTON_SIZE,
+                  borderRadius: REMOVE_BUTTON_SIZE / 2,
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor: "rgba(0,0,0,0.55)",
@@ -120,7 +136,7 @@ export function ComposerInlineTokenStrip(props: ComposerInlineTokenStripProps) {
               >
                 <SymbolView
                   name="xmark"
-                  size={9}
+                  size={10}
                   tintColor="#ffffff"
                   type="monochrome"
                   weight="bold"

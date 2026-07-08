@@ -59,6 +59,7 @@ export class MobileStorageEncodeError extends Schema.TaggedErrorClass<MobileStor
 
 export interface Preferences {
   readonly liveActivitiesEnabled?: boolean;
+  readonly stripComposerCoachSeen?: boolean;
   readonly baseFontSize?: number;
   /** Terminal font size override; null/absent means derived from baseFontSize. */
   readonly terminalFontSize?: number | null;
@@ -167,6 +168,7 @@ export async function loadPreferences(): Promise<Preferences> {
 
   const preferences: {
     liveActivitiesEnabled?: boolean;
+    stripComposerCoachSeen?: boolean;
     baseFontSize?: number;
     terminalFontSize?: number | null;
     markdownFontSize?: number;
@@ -176,6 +178,9 @@ export async function loadPreferences(): Promise<Preferences> {
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
     preferences.liveActivitiesEnabled = parsed.liveActivitiesEnabled;
+  }
+  if (typeof parsed.stripComposerCoachSeen === "boolean") {
+    preferences.stripComposerCoachSeen = parsed.stripComposerCoachSeen;
   }
   if (typeof parsed.baseFontSize === "number") {
     preferences.baseFontSize = parsed.baseFontSize;

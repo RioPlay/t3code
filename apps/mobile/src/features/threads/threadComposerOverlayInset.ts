@@ -7,6 +7,9 @@ export const COMPOSER_EXPANDED_CHROME = 174;
 /** Attachment strip row in expanded strip-mode composer (72px thumb + gutter). */
 export const COMPOSER_ATTACHMENT_STRIP_CHROME = 82;
 
+/** Inline token strip row in expanded strip-mode composer (48px chip + margin). */
+export const COMPOSER_INLINE_TOKEN_STRIP_CHROME = 56;
+
 export const THREAD_WORKING_INDICATOR_CHROME = 52;
 
 export interface ThreadComposerOverlayInsetAdjustment {
@@ -30,10 +33,14 @@ export function threadComposerOverlayInsetFromMeasurement(
 export function estimateThreadComposerOverlayHeight(input: {
   readonly expanded: boolean;
   readonly attachmentCount: number;
+  readonly inlineTokenCount?: number;
   readonly hasActiveWorkIndicator: boolean;
   readonly footerChromeInset: number;
 }): number {
   let height = input.expanded ? COMPOSER_EXPANDED_CHROME : COMPOSER_COLLAPSED_CHROME;
+  if (input.expanded && input.inlineTokenCount && input.inlineTokenCount > 0) {
+    height += COMPOSER_INLINE_TOKEN_STRIP_CHROME + 10;
+  }
   if (input.expanded && input.attachmentCount > 0) {
     height += COMPOSER_ATTACHMENT_STRIP_CHROME + 10;
   }

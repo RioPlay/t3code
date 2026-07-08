@@ -30,27 +30,36 @@ export function GlassSurface({
   const glassSurface = useThemeColor("--color-glass-surface");
   const glassTint = useThemeColor("--color-glass-tint");
   const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
-  const surfaceStyle: ViewStyle = {
-    borderRadius: 32,
-    overflow: "hidden",
-    borderWidth: chrome === "none" ? 0 : 1,
-    borderColor: chrome === "none" ? "transparent" : borderColor,
-    backgroundColor: chrome === "none" ? "transparent" : glassSurface,
-    shadowColor: chrome === "none" ? "transparent" : "#000000",
-    shadowOpacity: chrome === "none" ? 0 : isDarkMode ? 0.22 : 0.08,
-    shadowRadius: chrome === "none" ? 0 : 28,
-    shadowOffset:
-      chrome === "none"
-        ? {
-            width: 0,
-            height: 0,
-          }
-        : {
-            width: 0,
-            height: 14,
-          },
-    elevation: chrome === "none" ? 0 : 12,
-  };
+  const usesMaterialSurface = Platform.OS === "android";
+  const surfaceStyle: ViewStyle = usesMaterialSurface
+    ? {
+        borderRadius: 32,
+        overflow: "hidden",
+        borderWidth: chrome === "none" ? 0 : 1,
+        borderColor: chrome === "none" ? "transparent" : borderColor,
+        backgroundColor: chrome === "none" ? "transparent" : glassSurface,
+      }
+    : {
+        borderRadius: 32,
+        overflow: "hidden",
+        borderWidth: chrome === "none" ? 0 : 1,
+        borderColor: chrome === "none" ? "transparent" : borderColor,
+        backgroundColor: chrome === "none" ? "transparent" : glassSurface,
+        shadowColor: chrome === "none" ? "transparent" : "#000000",
+        shadowOpacity: chrome === "none" ? 0 : isDarkMode ? 0.22 : 0.08,
+        shadowRadius: chrome === "none" ? 0 : 28,
+        shadowOffset:
+          chrome === "none"
+            ? {
+                width: 0,
+                height: 0,
+              }
+            : {
+                width: 0,
+                height: 14,
+              },
+        elevation: chrome === "none" ? 0 : 12,
+      };
 
   if (supportsGlass) {
     return (

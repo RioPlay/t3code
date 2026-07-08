@@ -28,7 +28,8 @@ export function ComposerAttachmentStrip(props: ComposerAttachmentStripProps) {
   const size = props.imageSize ?? 72;
   const radius = props.imageBorderRadius ?? 16;
   const removeButtonPlacement = props.removeButtonPlacement ?? "overlay";
-  const removeButtonGutter = removeButtonPlacement === "gutter" ? 10 : 0;
+  const removeButtonSize = removeButtonPlacement === "gutter" ? 24 : 22;
+  const removeButtonGutter = removeButtonPlacement === "gutter" ? 12 : 0;
 
   if (props.attachments.length === 0) {
     return null;
@@ -74,9 +75,9 @@ export function ComposerAttachmentStrip(props: ComposerAttachmentStripProps) {
                 position: "absolute",
                 top: removeButtonPlacement === "gutter" ? 0 : 4,
                 right: removeButtonPlacement === "gutter" ? 0 : 4,
-                width: 22,
-                height: 22,
-                borderRadius: 11,
+                width: removeButtonSize,
+                height: removeButtonSize,
+                borderRadius: removeButtonSize / 2,
                 backgroundColor: "rgba(0,0,0,0.55)",
                 alignItems: "center",
                 justifyContent: "center",

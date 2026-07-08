@@ -31,6 +31,7 @@ describe("threadComposerOverlayInset", () => {
       estimateThreadComposerOverlayHeight({
         expanded: true,
         attachmentCount: 2,
+        inlineTokenCount: 1,
         hasActiveWorkIndicator: true,
         footerChromeInset: 64,
       }),

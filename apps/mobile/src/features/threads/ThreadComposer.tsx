@@ -20,6 +20,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   useColorScheme,
   View,
@@ -49,6 +50,11 @@ import { ControlPill, ControlPillMenu } from "../../components/ControlPill";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import type { DraftComposerImageAttachment } from "../../lib/composerImages";
 import { removeComposerInlineToken } from "../../lib/composerInlineTokenEditing";
+import {
+  resolveComposerSendLabel,
+  resolveComposerToolbarAccessibilityLabel,
+} from "../../lib/composerToolbarLabels";
+import { useComposerStripCoachMark } from "../../lib/useComposerStripCoachMark";
 import { useStableComposerInlineTokens } from "../../lib/useStableComposerInlineTokens";
 import { platformCapabilities } from "../../platform/capabilities";
 import { buildModelOptions, groupByProvider } from "../../lib/modelOptions";
@@ -125,14 +131,19 @@ function ComposerSurface(props: {
 }) {
   // Drop shadow lives on a wrapper: `overflow: "hidden"` on the surface itself
   // (needed to clip content to the pill shape) would clip the shadow on iOS.
-  const shadowStyle: ViewStyle = {
-    borderRadius: props.style.borderRadius,
-    shadowColor: "#000000",
-    shadowOpacity: props.isDarkMode ? 0.35 : 0.12,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
-  };
+  const usesMaterialSurface = Platform.OS === "android";
+  const shadowStyle: ViewStyle = usesMaterialSurface
+    ? {
+        borderRadius: props.style.borderRadius,
+      }
+    : {
+        borderRadius: props.style.borderRadius,
+        shadowColor: "#000000",
+        shadowOpacity: props.isDarkMode ? 0.35 : 0.12,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 10,
+      };
 
   if (isLiquidGlassSupported) {
     return (
@@ -306,10 +317,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     props.selectedThread.session?.status === "running" ||
     props.selectedThread.session?.status === "starting";
 
-  const sendLabel =
-    props.connectionState !== "connected" || props.activeThreadBusy || props.queueCount > 0
-      ? "Queue"
-      : "Send";
+  const sendLabel = resolveComposerSendLabel({
+    connectionState: props.connectionState,
+    activeThreadBusy: props.activeThreadBusy,
+    queueCount: props.queueCount,
+  });
   const currentModelSelection = props.selectedThread.modelSelection;
   const currentRuntimeMode = props.selectedThread.runtimeMode;
   const currentInteractionMode = props.selectedThread.interactionMode ?? "default";
@@ -341,9 +353,8 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
       ),
     [selectedProviderStatus?.skills],
   );
-  const [stripNoticeDismissed, setStripNoticeDismissed] = useState(false);
-  const showStripNotice =
-    stripMode && isExpanded && !stripNoticeDismissed && (inlineTokens.length > 0 || isFocused);
+  const { dismissCoachMark, showCoachMark } = useComposerStripCoachMark(stripMode);
+  const showStripNotice = stripMode && isExpanded && showCoachMark && isFocused;
   const handleRemoveInlineToken = useCallback(
     (token: (typeof inlineTokens)[number]) => {
       props.onChangeDraftMessage(removeComposerInlineToken(props.draftMessage, token));
@@ -790,9 +801,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                     : 0,
               }}
             >
-              {showStripNotice ? (
-                <ComposerStripModeNotice onDismiss={() => setStripNoticeDismissed(true)} />
-              ) : null}
+              {showStripNotice ? <ComposerStripModeNotice onDismiss={dismissCoachMark} /> : null}
               {stripMode ? (
                 <ComposerInlineTokenStrip
                   skillLabels={skillLabels}
@@ -917,20 +926,23 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 fadeTransparent={toolbarFadeTransparent}
               >
                 <ComposerToolbarButton
+                  accessibilityLabel={resolveComposerToolbarAccessibilityLabel("attach")}
                   icon="plus"
                   onPress={() => void props.onPickDraftImages()}
                   showChevron={false}
+                  testID="thread-composer-attach"
                 />
                 <ControlPillMenu
                   actions={modelMenuActions}
                   onPressAction={({ nativeEvent }) => handleModelMenuAction(nativeEvent.event)}
                 >
                   <ComposerToolbarTrigger
-                    accessibilityLabel="Model"
+                    accessibilityLabel={resolveComposerToolbarAccessibilityLabel("model")}
                     iconNode={
                       <ProviderIcon provider={currentModelOption?.providerDriver} size={16} />
                     }
                     label={currentModelOption?.label ?? currentModelSelection.model}
+                    testID="thread-composer-model"
                   />
                 </ControlPillMenu>
                 <ControlPillMenu
@@ -938,14 +950,15 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                   onPressAction={({ nativeEvent }) => handleOptionsMenuAction(nativeEvent.event)}
                 >
                   <ComposerToolbarTrigger
-                    accessibilityLabel="Configuration"
+                    accessibilityLabel={resolveComposerToolbarAccessibilityLabel("configuration")}
                     icon="slider.horizontal.3"
                     label={configurationLabel}
+                    testID="thread-composer-configuration"
                   />
                 </ControlPillMenu>
                 {showStopAction ? (
                   <ComposerToolbarButton
-                    accessibilityLabel="Stop agent"
+                    accessibilityLabel={resolveComposerToolbarAccessibilityLabel("stop")}
                     icon="stop.fill"
                     variant="danger"
                     onPress={props.onStopThread}

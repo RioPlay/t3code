@@ -15,6 +15,7 @@ import type {
   ThreadId,
 } from "@t3tools/contracts";
 import type { AgentAwarenessState } from "@t3tools/shared/agentAwareness";
+import { collectComposerInlineTokens } from "@t3tools/shared/composerInlineTokens";
 import { formatElapsed } from "@t3tools/shared/orchestrationTiming";
 import * as Haptics from "expo-haptics";
 import {
@@ -54,6 +55,7 @@ import type {
   PendingUserInputDraftAnswer,
   ThreadFeedEntry,
 } from "../../lib/threadActivity";
+import { platformCapabilities } from "../../platform/capabilities";
 import { MemoAgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { PendingApprovalCard } from "./PendingApprovalCard";
 import { PendingUserInputCard } from "./PendingUserInputCard";
@@ -275,9 +277,14 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     }
   })();
   const selectedThreadFeed = props.selectedThreadFeed;
+  const inlineTokenCount =
+    platformCapabilities.composer.chipMode === "strip"
+      ? collectComposerInlineTokens(props.draftMessage).length
+      : 0;
   const estimatedOverlayHeight = estimateThreadComposerOverlayHeight({
     expanded: composerExpanded,
     attachmentCount: props.draftAttachments.length,
+    inlineTokenCount,
     hasActiveWorkIndicator: props.activeWorkStartedAt !== null,
     footerChromeInset,
   });

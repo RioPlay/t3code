@@ -8,6 +8,18 @@ appId: ${APP_ID}
     id: "thread-screen"
 - tapOn:
     id: "thread-composer-input"
+- extendedWaitUntil:
+    visible:
+      id: "composer-strip-coach-mark"
+    timeout: 5000
+- tapOn:
+    text: "Got it"
+- assertVisible:
+    id: "thread-composer-attach"
+- assertVisible:
+    id: "thread-composer-model"
+- assertVisible:
+    id: "thread-composer-configuration"
 - inputText: "Maestro T2 composer ping"
 - tapOn:
     id: "thread-composer-send"
