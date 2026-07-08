@@ -58,9 +58,10 @@ export function SettingsEnvironmentsRouteScreen() {
   }, []);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet" testID="settings-environments-screen">
       <NativeHeaderToolbar placement="right">
         <NativeHeaderToolbar.Button
+          accessibilityLabel="Add environment"
           icon="plus"
           onPress={() => navigation.navigate("SettingsSheet", { screen: "SettingsEnvironmentNew" })}
           separateBackground

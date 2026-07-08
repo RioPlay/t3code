@@ -8,6 +8,7 @@ import type {
   RuntimeMode,
   ServerConfig as T3ServerConfig,
 } from "@t3tools/contracts";
+import { EnvironmentHubLabels } from "@t3tools/client-runtime/environment";
 import {
   detectComposerTrigger,
   replaceTextRange,
@@ -105,6 +106,7 @@ export interface ThreadComposerProps {
   readonly onUpdateRuntimeMode: (runtimeMode: RuntimeMode) => void;
   readonly onUpdateInteractionMode: (interactionMode: ProviderInteractionMode) => void;
   readonly onReconnectEnvironment: () => void;
+  readonly onManageEnvironments?: () => void;
   readonly onExpandedChange?: (expanded: boolean) => void;
 }
 
@@ -217,13 +219,17 @@ function composerConnectionStatus(input: {
 }
 
 const ComposerConnectionStatusPill = memo(function ComposerConnectionStatusPill(props: {
+  readonly onManageEnvironments?: () => void;
   readonly onPress: () => void;
   readonly status: ComposerStatusPillState;
 }) {
   const isReconnecting = props.status.kind !== "unavailable";
 
+  const showManageEnvironments =
+    props.status.kind === "unavailable" && props.onManageEnvironments !== undefined;
+
   return (
-    <View className="items-center pb-2">
+    <View className="items-center gap-2 pb-2">
       <Pressable
         accessibilityRole="button"
         onPress={props.onPress}
@@ -241,6 +247,17 @@ const ComposerConnectionStatusPill = memo(function ComposerConnectionStatusPill(
           {props.status.label}
         </Text>
       </Pressable>
+      {showManageEnvironments ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={props.onManageEnvironments}
+          className="rounded-full px-3 py-1.5 active:opacity-70"
+        >
+          <Text className="text-xs font-t3-bold text-foreground-muted">
+            {EnvironmentHubLabels.manageEnvironments}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 });
@@ -735,6 +752,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
           <ComposerConnectionStatusPill
             status={connectionStatus}
             onPress={props.onReconnectEnvironment}
+            onManageEnvironments={props.onManageEnvironments}
           />
         ) : null}
 

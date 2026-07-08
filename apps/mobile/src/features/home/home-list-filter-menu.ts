@@ -1,3 +1,4 @@
+import { EnvironmentHubLabels } from "@t3tools/client-runtime/environment";
 import type {
   EnvironmentId,
   SidebarProjectGroupingMode,
@@ -46,6 +47,8 @@ export function buildHomeListFilterMenu(props: {
   readonly onThreadSortOrderChange: (sortOrder: SidebarThreadSortOrder) => void;
   readonly onProjectGroupingModeChange: (mode: SidebarProjectGroupingMode) => void;
   readonly onOpenSettings?: () => void;
+  readonly onManageEnvironments?: () => void;
+  readonly onAddEnvironment?: () => void;
 }): HomeListFilterMenu {
   const items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu> = [];
 
@@ -57,6 +60,23 @@ export function buildHomeListFilterMenu(props: {
     });
   }
 
+  const environmentHubItems: HomeListFilterMenuAction[] = [];
+  if (props.onManageEnvironments) {
+    environmentHubItems.push({
+      type: "action",
+      title: EnvironmentHubLabels.manageEnvironments,
+      onPress: props.onManageEnvironments,
+    });
+  }
+  if (props.onAddEnvironment) {
+    environmentHubItems.push({
+      type: "action",
+      title: EnvironmentHubLabels.addEnvironment,
+      subtitle: EnvironmentHubLabels.addEnvironmentSubtitle,
+      onPress: props.onAddEnvironment,
+    });
+  }
+
   items.push(
     {
       type: "submenu",
@@ -64,8 +84,8 @@ export function buildHomeListFilterMenu(props: {
       items: [
         {
           type: "action",
-          title: "All environments",
-          subtitle: "Show threads from every environment",
+          title: EnvironmentHubLabels.filterAllEnvironments,
+          subtitle: EnvironmentHubLabels.filterAllEnvironmentsSubtitle,
           state: props.selectedEnvironmentId === null ? "on" : "off",
           onPress: () => props.onEnvironmentChange(null),
         },
@@ -78,6 +98,7 @@ export function buildHomeListFilterMenu(props: {
               : ("off" as const),
           onPress: () => props.onEnvironmentChange(environment.environmentId),
         })),
+        ...environmentHubItems,
       ],
     },
     {

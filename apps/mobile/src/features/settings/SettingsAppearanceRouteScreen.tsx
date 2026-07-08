@@ -9,7 +9,7 @@ export function SettingsAppearanceRouteScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet" testID="settings-appearance-screen">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}

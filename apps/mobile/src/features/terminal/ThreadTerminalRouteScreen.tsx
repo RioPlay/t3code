@@ -39,6 +39,7 @@ import {
 import { useThreadSelection } from "../../state/use-thread-selection";
 import { useSelectedThreadDetail } from "../../state/use-thread-detail";
 import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
+import { navigateToEnvironmentHub } from "../environment/environmentHubNavigation";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { platformCapabilities } from "../../platform/capabilities";
 import { TerminalSurface } from "./NativeTerminalSurface";
@@ -932,7 +933,10 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
         </NativeHeaderToolbar>
       ) : null}
 
-      <View style={{ flex: 1, backgroundColor: terminalTheme.background }}>
+      <View
+        style={{ flex: 1, backgroundColor: terminalTheme.background }}
+        testID="thread-terminal-screen"
+      >
         {!isEnvironmentReady ? (
           <EnvironmentConnectionNotice
             environmentLabel={
@@ -949,6 +953,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
             }
             resourceName="terminal"
             onRetry={handleRetryEnvironment}
+            onManageEnvironments={() => navigateToEnvironmentHub(navigation)}
           />
         ) : (
           <>

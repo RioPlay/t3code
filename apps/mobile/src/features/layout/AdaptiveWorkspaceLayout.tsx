@@ -33,6 +33,10 @@ import {
   type WorkspacePaneLayout,
 } from "../../lib/layout";
 import { resolveThreadSelectionNavigationAction } from "../../lib/adaptive-navigation";
+import {
+  navigateToAddEnvironment,
+  navigateToEnvironmentHub,
+} from "../environment/environmentHubNavigation";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import {
   parseActiveThreadPath,
@@ -401,7 +405,11 @@ export function AdaptiveWorkspaceLayout(props: {
   // Minted here (root stack navigation) so the sidebar pane stays free of
   // navigation hooks — on iOS it renders inside an independent nav tree.
   const handleOpenEnvironmentSettings = useCallback(() => {
-    navigation.navigate("SettingsSheet", { screen: "SettingsEnvironments" });
+    navigateToEnvironmentHub(navigation);
+  }, [navigation]);
+
+  const handleAddEnvironment = useCallback(() => {
+    navigateToAddEnvironment(navigation);
   }, [navigation]);
 
   const handleNewThreadInProject = useCallback(
@@ -494,6 +502,7 @@ export function AdaptiveWorkspaceLayout(props: {
                 selectedThreadKey={selectedThreadKey}
                 onOpenSettings={handleOpenSettings}
                 onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
+                onAddEnvironment={handleAddEnvironment}
                 onNewThreadInProject={handleNewThreadInProject}
                 onSelectThread={handleSelectThread}
                 onSearchQueryChange={setPrimarySidebarSearchQuery}

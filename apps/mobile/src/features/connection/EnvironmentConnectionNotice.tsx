@@ -54,6 +54,7 @@ export function EnvironmentConnectionNotice(props: {
   readonly connection: EnvironmentConnectionPresentation;
   readonly resourceName: string;
   readonly onRetry: () => void;
+  readonly onManageEnvironments?: () => void;
 }) {
   const iconColor = String(useThemeColor("--color-icon-muted"));
   const isRetrying =
@@ -98,13 +99,24 @@ export function EnvironmentConnectionNotice(props: {
         </Text>
 
         {props.connection.phase !== "offline" ? (
-          <Pressable
-            accessibilityRole="button"
-            className="mt-1 rounded-full bg-subtle px-4 py-2.5 active:opacity-70"
-            onPress={props.onRetry}
-          >
-            <Text className="text-sm font-t3-bold text-foreground">Retry now</Text>
-          </Pressable>
+          <View className="mt-1 flex-row flex-wrap items-center justify-center gap-2">
+            <Pressable
+              accessibilityRole="button"
+              className="rounded-full bg-subtle px-4 py-2.5 active:opacity-70"
+              onPress={props.onRetry}
+            >
+              <Text className="text-sm font-t3-bold text-foreground">Retry now</Text>
+            </Pressable>
+            {props.onManageEnvironments ? (
+              <Pressable
+                accessibilityRole="button"
+                className="rounded-full bg-subtle px-4 py-2.5 active:opacity-70"
+                onPress={props.onManageEnvironments}
+              >
+                <Text className="text-sm font-t3-bold text-foreground">Manage environments</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>

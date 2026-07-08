@@ -43,6 +43,7 @@ import {
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useThreadDraftForThread } from "../../state/use-thread-composer-state";
 import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
+import { navigateToEnvironmentHub } from "../environment/environmentHubNavigation";
 import {
   useAdaptiveWorkspaceLayout,
   useAdaptiveWorkspacePaneRole,
@@ -700,6 +701,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
               }
               resourceName="review"
               onRetry={handleRetryEnvironment}
+              onManageEnvironments={() => navigateToEnvironmentHub(navigation)}
             />
           </View>
         ) : selectedSection && parsedDiff.kind === "files" && NativeReviewDiffView ? (

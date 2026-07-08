@@ -1,6 +1,11 @@
 "use client";
 
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import {
+  EnvironmentHubLabels,
+  EnvironmentHubSearchTerms,
+  scopeProjectRef,
+  scopeThreadRef,
+} from "@t3tools/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   settlePromise,
@@ -1044,6 +1049,17 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  actionItems.push({
+    kind: "action",
+    value: "action:environments",
+    searchTerms: [...EnvironmentHubSearchTerms],
+    title: EnvironmentHubLabels.manageEnvironments,
+    icon: <LinkIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: EnvironmentHubLabels.webSettingsPath });
+    },
+  });
 
   actionItems.push({
     kind: "action",

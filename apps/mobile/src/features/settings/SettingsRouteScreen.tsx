@@ -81,7 +81,7 @@ function LocalSettingsRouteScreen() {
   const environmentCount = Object.keys(savedConnectionsById).length;
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet" testID="settings-screen">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
@@ -372,7 +372,7 @@ function ConfiguredSettingsRouteScreen() {
   }, [expandClerkSheet, isLoaded, isSignedIn, navigation]);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet" testID="settings-screen">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}

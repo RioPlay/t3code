@@ -1683,7 +1683,7 @@ function ChatViewContent(props: ChatViewProps) {
               variant="outline"
               onClick={() => void navigate({ to: "/settings/connections" })}
             >
-              Connections
+              Manage environments
             </Button>
           </>
         ),

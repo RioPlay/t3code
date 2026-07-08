@@ -25,14 +25,9 @@ import { usePendingNewTasks } from "../../state/use-pending-new-tasks";
 import { useWorkspaceState } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
-import {
-  hasCustomHomeListOptions,
-  PROJECT_GROUPING_OPTIONS,
-  PROJECT_SORT_OPTIONS,
-  THREAD_SORT_OPTIONS,
-  useHomeListOptions,
-} from "../home/home-list-options";
+import { hasCustomHomeListOptions, useHomeListOptions } from "../home/home-list-options";
 import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
+import { buildHomeListMenuActions, handleHomeListMenuAction } from "../home/homeListMenuActions";
 import {
   buildHomeListLayout,
   DEFAULT_GROUP_DISPLAY_STATE,
@@ -110,6 +105,7 @@ interface ThreadNavigationSidebarProps {
   readonly selectedThreadKey: string | null;
   readonly onOpenSettings: () => void;
   readonly onOpenEnvironmentSettings: () => void;
+  readonly onAddEnvironment: () => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
@@ -242,93 +238,32 @@ function ThreadNavigationSidebarPane(
   }, [projects]);
   const showsConnectionStatus = shouldShowWorkspaceConnectionStatus(catalogState);
   const listMenuActions = useMemo<MenuAction[]>(
-    () => [
-      {
-        id: "environment",
-        title: "Environment",
-        subactions: [
-          {
-            id: "environment:all",
-            title: "All environments",
-            subtitle: "Show threads from every environment",
-            state: options.selectedEnvironmentId === null ? "on" : "off",
-          },
-          ...environments.map((environment) => ({
-            id: `environment:${environment.environmentId}`,
-            title: environment.label,
-            state:
-              options.selectedEnvironmentId === environment.environmentId
-                ? ("on" as const)
-                : ("off" as const),
-          })),
-        ],
-      },
-      {
-        id: "project-sort",
-        title: "Sort projects",
-        subactions: PROJECT_SORT_OPTIONS.map((option) => ({
-          id: `project-sort:${option.value}`,
-          title: option.label,
-          state: options.projectSortOrder === option.value ? "on" : "off",
-        })),
-      },
-      {
-        id: "thread-sort",
-        title: "Sort threads",
-        subactions: THREAD_SORT_OPTIONS.map((option) => ({
-          id: `thread-sort:${option.value}`,
-          title: option.label,
-          state: options.threadSortOrder === option.value ? "on" : "off",
-        })),
-      },
-      {
-        id: "project-grouping",
-        title: "Group projects",
-        subactions: PROJECT_GROUPING_OPTIONS.map((option) => ({
-          id: `project-grouping:${option.value}`,
-          title: option.label,
-          subtitle: option.subtitle,
-          state: options.projectGroupingMode === option.value ? "on" : "off",
-        })),
-      },
-    ],
+    () =>
+      buildHomeListMenuActions({
+        environments,
+        selectedEnvironmentId: options.selectedEnvironmentId,
+        projectSortOrder: options.projectSortOrder,
+        threadSortOrder: options.threadSortOrder,
+        projectGroupingMode: options.projectGroupingMode,
+      }),
     [environments, options],
   );
   const handleListMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
-      const event = nativeEvent.event;
-      if (event === "environment:all") {
-        setSelectedEnvironmentId(null);
-        return;
-      }
-      if (event.startsWith("environment:")) {
-        const environment = environments.find(
-          (candidate) => String(candidate.environmentId) === event.slice("environment:".length),
-        );
-        if (environment) setSelectedEnvironmentId(environment.environmentId);
-        return;
-      }
-      const projectSort = PROJECT_SORT_OPTIONS.find(
-        (option) => `project-sort:${option.value}` === event,
-      );
-      if (projectSort) {
-        setProjectSortOrder(projectSort.value);
-        return;
-      }
-      const threadSort = THREAD_SORT_OPTIONS.find(
-        (option) => `thread-sort:${option.value}` === event,
-      );
-      if (threadSort) {
-        setThreadSortOrder(threadSort.value);
-        return;
-      }
-      const grouping = PROJECT_GROUPING_OPTIONS.find(
-        (option) => `project-grouping:${option.value}` === event,
-      );
-      if (grouping) setProjectGroupingMode(grouping.value);
+      handleHomeListMenuAction(nativeEvent.event, {
+        environments,
+        onEnvironmentChange: setSelectedEnvironmentId,
+        onProjectSortOrderChange: setProjectSortOrder,
+        onThreadSortOrderChange: setThreadSortOrder,
+        onProjectGroupingModeChange: setProjectGroupingMode,
+        onManageEnvironments: props.onOpenEnvironmentSettings,
+        onAddEnvironment: props.onAddEnvironment,
+      });
     },
     [
       environments,
+      props.onAddEnvironment,
+      props.onOpenEnvironmentSettings,
       setProjectGroupingMode,
       setProjectSortOrder,
       setSelectedEnvironmentId,
@@ -512,10 +447,14 @@ function ThreadNavigationSidebarPane(
         onProjectSortOrderChange: setProjectSortOrder,
         onThreadSortOrderChange: setThreadSortOrder,
         onProjectGroupingModeChange: setProjectGroupingMode,
+        onManageEnvironments: props.onOpenEnvironmentSettings,
+        onAddEnvironment: props.onAddEnvironment,
       }),
     [
       environments,
       options,
+      props.onAddEnvironment,
+      props.onOpenEnvironmentSettings,
       setProjectGroupingMode,
       setProjectSortOrder,
       setSelectedEnvironmentId,

@@ -1,10 +1,11 @@
+import { EnvironmentHubLabels } from "@t3tools/client-runtime/environment";
 import type {
   EnvironmentId,
   SidebarProjectGroupingMode,
   SidebarThreadSortOrder,
 } from "@t3tools/contracts";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, type RefObject } from "react";
 import { Platform } from "react-native";
 import type { SearchBarCommands } from "react-native-screens";
 
@@ -31,6 +32,7 @@ const HEADER_SCROLL_EDGE_EFFECTS = nativeHeaderScrollEdgeEffects(Platform.OS, Pl
 
 export function HomeHeader(props: {
   readonly environments: ReadonlyArray<HomeHeaderEnvironment>;
+  readonly searchBarRef?: RefObject<SearchBarCommands | null>;
   readonly selectedEnvironmentId: EnvironmentId | null;
   readonly projectSortOrder: HomeProjectSortOrder;
   readonly threadSortOrder: SidebarThreadSortOrder;
@@ -41,9 +43,12 @@ export function HomeHeader(props: {
   readonly onThreadSortOrderChange: (sortOrder: SidebarThreadSortOrder) => void;
   readonly onProjectGroupingModeChange: (mode: SidebarProjectGroupingMode) => void;
   readonly onOpenSettings: () => void;
+  readonly onManageEnvironments: () => void;
+  readonly onAddEnvironment: () => void;
   readonly onStartNewTask: () => void;
 }) {
-  const searchBarRef = useRef<SearchBarCommands>(null);
+  const localSearchBarRef = useRef<SearchBarCommands>(null);
+  const searchBarRef = props.searchBarRef ?? localSearchBarRef;
   const iconColor = useThemeColor("--color-icon");
   const hasCustomListOptions = hasCustomHomeListOptions(props);
   const focusSearch = useCallback(() => {
@@ -165,6 +170,19 @@ export function HomeHeader(props: {
                   <NativeHeaderToolbar.Label>{environment.label}</NativeHeaderToolbar.Label>
                 </NativeHeaderToolbar.MenuAction>
               ))}
+              <NativeHeaderToolbar.MenuAction onPress={props.onManageEnvironments}>
+                <NativeHeaderToolbar.Label>
+                  {EnvironmentHubLabels.manageEnvironments}
+                </NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
+              <NativeHeaderToolbar.MenuAction
+                onPress={props.onAddEnvironment}
+                subtitle={EnvironmentHubLabels.addEnvironmentSubtitle}
+              >
+                <NativeHeaderToolbar.Label>
+                  {EnvironmentHubLabels.addEnvironment}
+                </NativeHeaderToolbar.Label>
+              </NativeHeaderToolbar.MenuAction>
             </NativeHeaderToolbar.Menu>
 
             <NativeHeaderToolbar.Menu title="Sort projects">

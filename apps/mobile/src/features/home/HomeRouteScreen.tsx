@@ -1,7 +1,8 @@
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
 import { useNavigation } from "@react-navigation/native";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { SearchBarCommands } from "react-native-screens";
 import { View } from "react-native";
 
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
@@ -12,6 +13,10 @@ import { useSavedRemoteConnections } from "../../state/use-remote-environment-re
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { WorkspaceEmptyDetail } from "../layout/WorkspaceEmptyDetail";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
+import {
+  navigateToAddEnvironment,
+  navigateToEnvironmentHub,
+} from "../environment/environmentHubNavigation";
 import { HomeScreen } from "./HomeScreen";
 import { HomeHeader } from "./HomeHeader";
 import { useHomeListOptions } from "./home-list-options";
@@ -27,6 +32,7 @@ export function HomeRouteScreen() {
   const { state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const navigation = useNavigation();
+  const searchBarRef = useRef<SearchBarCommands>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { archiveThread, confirmDeleteThread } = useThreadListActions();
   const pendingTasks = usePendingNewTasks();
@@ -86,12 +92,15 @@ export function HomeRouteScreen() {
       <NativeStackScreenOptions options={{ title: "Threads", headerTitle: "Threads" }} />
       <HomeHeader
         environments={environments}
+        searchBarRef={searchBarRef}
         selectedEnvironmentId={selectedEnvironmentId}
         projectSortOrder={listOptions.projectSortOrder}
         threadSortOrder={listOptions.threadSortOrder}
         projectGroupingMode={listOptions.projectGroupingMode}
         onEnvironmentChange={setSelectedEnvironmentId}
         onOpenSettings={() => navigation.navigate("SettingsSheet", { screen: "Settings" })}
+        onManageEnvironments={() => navigateToEnvironmentHub(navigation)}
+        onAddEnvironment={() => navigateToAddEnvironment(navigation)}
         onProjectGroupingModeChange={setProjectGroupingMode}
         onProjectSortOrderChange={setProjectSortOrder}
         onSearchQueryChange={setSearchQuery}
@@ -102,15 +111,11 @@ export function HomeRouteScreen() {
       <HomeScreen
         catalogState={catalogState}
         environments={environments}
-        onAddConnection={() =>
-          navigation.navigate("SettingsSheet", { screen: "SettingsEnvironmentNew" })
-        }
+        onAddConnection={() => navigateToAddEnvironment(navigation)}
         onArchiveThread={archiveThread}
         onDeleteThread={confirmDeleteThread}
         onEnvironmentChange={setSelectedEnvironmentId}
-        onOpenEnvironments={() =>
-          navigation.navigate("SettingsSheet", { screen: "SettingsEnvironments" })
-        }
+        onOpenEnvironments={() => navigateToEnvironmentHub(navigation)}
         onOpenSettings={() => navigation.navigate("SettingsSheet", { screen: "Settings" })}
         onProjectGroupingModeChange={setProjectGroupingMode}
         onProjectSortOrderChange={setProjectSortOrder}
