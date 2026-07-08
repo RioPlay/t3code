@@ -140,6 +140,7 @@ export function HomeRouteScreen() {
         }}
         onStartNewTask={() => navigation.navigate("NewTaskSheet", { screen: "NewTask" })}
         onThreadSortOrderChange={setThreadSortOrder}
+        searchBarRef={searchBarRef}
         pendingTasks={pendingTasks}
         projectGroupingMode={listOptions.projectGroupingMode}
         projects={projects}

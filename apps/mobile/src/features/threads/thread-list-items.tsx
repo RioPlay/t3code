@@ -4,6 +4,7 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import type { MenuAction } from "@react-native-menu/menu";
+import { AppSymbol } from "../../components/AppSymbol";
 import { SymbolView } from "expo-symbols";
 import { memo, useCallback, useMemo, type ComponentProps } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
@@ -127,7 +128,7 @@ export const ThreadListGroupHeader = memo(function ThreadListGroupHeader(props: 
           onPress={handleNewThread}
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, paddingLeft: 12 })}
         >
-          <SymbolView
+          <AppSymbol
             name="plus"
             size={compact ? 20 : 16}
             tintColor={iconMutedColor}

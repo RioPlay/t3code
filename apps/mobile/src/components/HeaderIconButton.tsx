@@ -1,12 +1,11 @@
-import { SymbolView } from "expo-symbols";
-import type { ComponentProps } from "react";
 import { Pressable } from "react-native";
 
+import { AppSymbol, type AppSymbolName } from "./AppSymbol";
 import { useThemeColor } from "../lib/useThemeColor";
 
 export function HeaderIconButton(props: {
   readonly accessibilityLabel: string;
-  readonly icon: ComponentProps<typeof SymbolView>["name"];
+  readonly icon: AppSymbolName;
   readonly onPress: () => void;
   readonly testID?: string;
 }) {
@@ -28,7 +27,7 @@ export function HeaderIconButton(props: {
         opacity: pressed ? 0.65 : 1,
       })}
     >
-      <SymbolView name={props.icon} size={22} tintColor={iconColor} type="monochrome" />
+      <AppSymbol name={props.icon} size={22} tintColor={iconColor} type="monochrome" />
     </Pressable>
   );
 }
