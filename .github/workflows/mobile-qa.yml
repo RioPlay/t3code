@@ -76,6 +76,33 @@ jobs:
           EXPO_PUBLIC_FORCE_NITRO_MARKDOWN: "1"
         run: vp test run apps/mobile
 
+  # Nightly (and manual) unit suite under production-like Android capability pins.
+  # PR path still runs the FORCE_* dogfood job above for iOS regression coverage.
+  mobile_native_default_unit:
+    name: Mobile native-default unit (tier-1+)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Ensure Electron runtime is installed
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      - name: Native-default mobile unit tests
+        env:
+          EXPO_PUBLIC_FORCE_NITRO_MARKDOWN: "1"
+          EXPO_PUBLIC_TERMINAL_WEBVIEW: "0"
+        run: vp test run apps/mobile
+
   mobile_maestro_android:
     name: Mobile Maestro Android
     runs-on: blacksmith-8vcpu-ubuntu-2404
@@ -104,6 +131,9 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         env:
           EXPO_PUBLIC_MAESTRO_AUTH_BYPASS: "1"
+          # Nightly + PR smoke on tier-1+ native defaults (not FORCE_JS_REVIEW dogfood).
+          EXPO_PUBLIC_FORCE_NITRO_MARKDOWN: "1"
+          EXPO_PUBLIC_TERMINAL_WEBVIEW: "0"
           RELAY_STAGING_URL: ${{ secrets.RELAY_STAGING_URL }}
           RELAY_STAGING_TEST_SECRET: ${{ secrets.RELAY_STAGING_TEST_SECRET }}
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}

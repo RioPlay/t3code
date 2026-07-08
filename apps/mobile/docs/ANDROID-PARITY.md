@@ -56,7 +56,7 @@ Key build wiring:
 
 - `scripts/with-android-env.mjs` — resolves `JAVA_HOME` / `ANDROID_HOME`, writes `local.properties`
 - `plugins/withAndroidBuildFixes.cjs` — expo-dev-client Gradle ordering + SDK path
-- `plugins/withAndroidCleartextTraffic.cjs` — HTTP for tailnet / local relay
+- `plugins/withAndroidCleartextTraffic.cjs` — cleartext HTTP for **development/preview** only (production = off)
 - `plugins/withAndroidGoogleServices.cjs` — fails prebuild with a clear message when FCM config is missing
 
 FCM setup: [FIREBASE-ANDROID.md](./FIREBASE-ANDROID.md).
@@ -79,8 +79,10 @@ Maestro smoke (booted emulator):
 CI (`/.github/workflows/mobile-qa.yml`):
 
 - `expo-doctor`
-- Mobile unit tests with `EXPO_PUBLIC_FORCE_JS_REVIEW=1` and `EXPO_PUBLIC_FORCE_NITRO_MARKDOWN=1`
-- Maestro Android smoke on API 34 emulator (**blocking**)
+- Mobile unit tests with `EXPO_PUBLIC_FORCE_JS_REVIEW=1` and `EXPO_PUBLIC_FORCE_NITRO_MARKDOWN=1` (iOS dogfood)
+- Nightly / `workflow_dispatch`: native-default unit suite (`EXPO_PUBLIC_TERMINAL_WEBVIEW=0`, nitro markdown)
+- Maestro Android smoke on API 34 emulator (**blocking**) with tier-1+ native defaults
+- REV-007 review perf gate job
 
 Review perf proxy gate: `src/features/review/reviewPerfGate.test.ts` (REV-007 thresholds). Tier-1+
 certified JS review on Android at t11 (median list build well under 50 ms); native port (t12–t13)
@@ -106,4 +108,4 @@ skipped unless you merge them manually.
 
 1. **Secondary chrome** — continue aligning Android header toolbars with iOS mail-search patterns
 2. ~~**Variant launcher art**~~ — done (t16): distinct foregrounds per development/preview/production + solid adaptive plates
-3. **Store readiness** — t18: production EAS AAB + Play internal draft submit documented (hg01/hg02 human); t19 cleartext hardening remains
+3. ~~**Store readiness**~~ — t18 Play internal prep + t19 production cleartext off / nightly native-default CI
