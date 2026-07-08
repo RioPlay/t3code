@@ -1,6 +1,10 @@
 {
-  "platforms": ["apple"],
+  "platforms": ["apple", "android"],
   "apple": {
-    "modules": ["T3ComposerEditorModule"]
+    "modules": ["T3ComposerEditorModule"],
+    "podspecPath": "ios/T3ComposerEditor.podspec"
+  },
+  "android": {
+    "modules": ["expo.modules.t3composereditor.T3ComposerEditorModule"]
   }
 }
