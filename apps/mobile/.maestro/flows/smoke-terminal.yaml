@@ -1,0 +1,20 @@
+appId: ${APP_ID}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+- tapOn:
+    id: "home-thread-row"
+    index: 0
+- assertVisible:
+    id: "thread-screen"
+- tapOn:
+    id: "thread-accessory-terminal"
+- extendedWaitUntil:
+    visible:
+      id: "thread-terminal-screen"
+    timeout: 30000
+- assertVisible:
+    id: "terminal-surface"
+- back
+- assertVisible:
+    id: "thread-screen"
+- stopApp

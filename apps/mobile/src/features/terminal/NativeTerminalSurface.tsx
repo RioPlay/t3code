@@ -223,12 +223,16 @@ export const TerminalSurface = memo(function TerminalSurface(props: TerminalSurf
   );
 
   if (platformCapabilities.terminal.preferWebView) {
-    return <WebViewTerminalSurface {...props} fontSize={fontSize} theme={theme} />;
+    return (
+      <View style={props.style} testID="terminal-surface">
+        <WebViewTerminalSurface {...props} fontSize={fontSize} theme={theme} />
+      </View>
+    );
   }
 
   if (NativeTerminalSurfaceView) {
     return (
-      <View style={props.style}>
+      <View style={props.style} testID="terminal-surface">
         <NativeTerminalSurfaceView
           appearanceScheme={appearanceScheme}
           backgroundColor={theme.background}
@@ -247,5 +251,9 @@ export const TerminalSurface = memo(function TerminalSurface(props: TerminalSurf
     );
   }
 
-  return <FallbackTerminalSurface {...props} fontSize={fontSize} theme={theme} />;
+  return (
+    <View style={props.style} testID="terminal-surface">
+      <FallbackTerminalSurface {...props} fontSize={fontSize} theme={theme} />
+    </View>
+  );
 });

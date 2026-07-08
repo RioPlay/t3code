@@ -932,7 +932,10 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
         </NativeHeaderToolbar>
       ) : null}
 
-      <View style={{ flex: 1, backgroundColor: terminalTheme.background }}>
+      <View
+        style={{ flex: 1, backgroundColor: terminalTheme.background }}
+        testID="thread-terminal-screen"
+      >
         {!isEnvironmentReady ? (
           <EnvironmentConnectionNotice
             environmentLabel={

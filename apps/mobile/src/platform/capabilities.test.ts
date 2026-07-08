@@ -83,8 +83,29 @@ describe("resolvePlatformCapabilities", () => {
     expect(caps.terminal.native).toBe(false);
   });
 
-  it("defaults terminal.preferWebView on Android when env is unset", async () => {
+  it("defaults terminal.preferWebView off on Android when env is unset", async () => {
     platformState.OS = "android";
+    const { resolvePlatformCapabilities } = await import("./capabilities");
+    const caps = resolvePlatformCapabilities();
+    expect(caps.terminal.preferWebView).toBe(false);
+    expect(caps.terminal.native).toBe(false);
+  });
+
+  it("enables terminal.native on Android when native surface resolves and env is unset", async () => {
+    platformState.OS = "android";
+    setExpoViewConfig(["T3TerminalSurface"]);
+    expoMocks.requireNativeView.mockReturnValue(nativeView);
+    const { resolvePlatformCapabilities } = await import("./capabilities");
+    const caps = resolvePlatformCapabilities();
+    expect(caps.terminal.preferWebView).toBe(false);
+    expect(caps.terminal.native).toBe(true);
+  });
+
+  it("allows enabling terminal WebView on Android via EXPO_PUBLIC_TERMINAL_WEBVIEW=1", async () => {
+    platformState.OS = "android";
+    setExpoViewConfig(["T3TerminalSurface"]);
+    expoMocks.requireNativeView.mockReturnValue(nativeView);
+    process.env.EXPO_PUBLIC_TERMINAL_WEBVIEW = "1";
     const { resolvePlatformCapabilities } = await import("./capabilities");
     const caps = resolvePlatformCapabilities();
     expect(caps.terminal.preferWebView).toBe(true);

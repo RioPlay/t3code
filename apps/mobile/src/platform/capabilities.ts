@@ -1,5 +1,4 @@
 import type { ComponentType } from "react";
-import { Platform } from "react-native";
 
 import {
   resolveNativeReviewDiffView,
@@ -49,7 +48,7 @@ function resolvePreferTerminalWebView(): boolean {
   if (readFalsyPublicEnv("EXPO_PUBLIC_TERMINAL_WEBVIEW")) {
     return false;
   }
-  return Platform.OS === "android";
+  return false;
 }
 
 function hasNativeComposerEditor(): boolean {
