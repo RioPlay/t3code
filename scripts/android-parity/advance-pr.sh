@@ -42,6 +42,14 @@ if [[ -z "$NEXT_STEP" ]]; then
         s27b) NEXT_STEP="s28" ;;
       esac
     fi
+  elif [[ "$STEP_ID" =~ ^t([0-9]+)([a-z]*)$ ]]; then
+    NUM="${BASH_REMATCH[1]}"
+    SUFFIX="${BASH_REMATCH[2]}"
+    NEXT_NUM=$((10#$NUM + 1))
+    NEXT_STEP="$(printf 't%02d%s' "$NEXT_NUM" "$SUFFIX")"
+    if [[ "$COMPLETION_MODE" == "automated" && "$NEXT_STEP" == "t15b" ]]; then
+      NEXT_STEP="t16"
+    fi
   else
     NEXT_STEP="$STEP_ID"
   fi
