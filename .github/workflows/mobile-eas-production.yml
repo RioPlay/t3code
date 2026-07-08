@@ -5,11 +5,16 @@ name: Mobile EAS Production
 # in the same OS/pnpm as the EAS build; a macOS `eas build` computes a different
 # fingerprint (platform-specific deps + pnpm version) and errors. On this Linux
 # runner, with corepack pinning pnpm 10.24 in eas.json, local == build.
+#
+# Android: production profile builds an AAB with remote credentials and
+# auto-submits to Play Console **internal** track (draft). Before first Android
+# submit, complete hg01/hg02 in apps/mobile/docs/FIREBASE-ANDROID.md
+# (production google-services + Play service account on EAS).
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "build (+ auto-submit to TestFlight) or update (OTA)"
+        description: "build (+ auto-submit: TestFlight iOS / Play internal Android) or update (OTA)"
         required: true
         type: choice
         default: build
@@ -39,6 +44,9 @@ jobs:
     env:
       APP_VARIANT: production
       NODE_OPTIONS: --max-old-space-size=8192
+      # Match eas.json production env — tier-1+ native-default capability pins.
+      EXPO_PUBLIC_FORCE_NITRO_MARKDOWN: "1"
+      EXPO_PUBLIC_TERMINAL_WEBVIEW: "0"
     steps:
       - id: expo-token
         name: Check for EXPO_TOKEN
@@ -88,6 +96,36 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas env:pull production --non-interactive
+
+      - name: Validate production profile (Android native defaults)
+        if: steps.expo-token.outputs.present == 'true'
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const eas = JSON.parse(readFileSync("eas.json", "utf8"));
+          const prod = eas.build?.production;
+          if (!prod) throw new Error("missing eas.json build.production");
+          const env = prod.env ?? {};
+          if (env.APP_VARIANT !== "production") {
+            throw new Error(`APP_VARIANT must be production, got ${env.APP_VARIANT}`);
+          }
+          if (env.EXPO_PUBLIC_TERMINAL_WEBVIEW !== "0") {
+            throw new Error("production must pin EXPO_PUBLIC_TERMINAL_WEBVIEW=0");
+          }
+          if (env.EXPO_PUBLIC_FORCE_NITRO_MARKDOWN !== "1") {
+            throw new Error("production must pin EXPO_PUBLIC_FORCE_NITRO_MARKDOWN=1");
+          }
+          if (prod.android?.buildType !== "app-bundle") {
+            throw new Error("production android.buildType must be app-bundle");
+          }
+          const track = eas.submit?.production?.android?.track;
+          if (track !== "internal") {
+            throw new Error(`submit.production.android.track must be internal, got ${track}`);
+          }
+          console.log("production profile OK: AAB + Play internal + tier-1+ env pins");
+          NODE
 
       - name: Build and submit
         if: steps.expo-token.outputs.present == 'true' && inputs.mode == 'build'

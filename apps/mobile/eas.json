@@ -43,11 +43,17 @@
     "production": {
       "corepack": true,
       "env": {
-        "APP_VARIANT": "production"
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_FORCE_NITRO_MARKDOWN": "1",
+        "EXPO_PUBLIC_TERMINAL_WEBVIEW": "0"
       },
       "channel": "production",
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle",
+        "credentialsSource": "remote"
+      }
     }
   },
   "submit": {
@@ -56,7 +62,8 @@
         "ascAppId": "6787819824"
       },
       "android": {
-        "track": "internal"
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

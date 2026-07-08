@@ -106,4 +106,4 @@ skipped unless you merge them manually.
 
 1. **Secondary chrome** — continue aligning Android header toolbars with iOS mail-search patterns
 2. ~~**Variant launcher art**~~ — done (t16): distinct foregrounds per development/preview/production + solid adaptive plates
-3. **Store readiness** — production cleartext / signing / Play internal track validation
+3. **Store readiness** — t18: production EAS AAB + Play internal draft submit documented (hg01/hg02 human); t19 cleartext hardening remains
