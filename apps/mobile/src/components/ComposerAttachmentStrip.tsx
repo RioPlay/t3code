@@ -52,6 +52,8 @@ export function ComposerAttachmentStrip(props: ComposerAttachmentStripProps) {
             }}
           >
             <Pressable
+              accessibilityLabel="Preview attached image"
+              accessibilityRole="imagebutton"
               onPress={props.onPressImage ? () => props.onPressImage!(image.previewUri) : undefined}
             >
               <Image
@@ -66,6 +68,8 @@ export function ComposerAttachmentStrip(props: ComposerAttachmentStripProps) {
               />
             </Pressable>
             <Pressable
+              accessibilityLabel="Remove attached image"
+              accessibilityRole="button"
               style={{
                 position: "absolute",
                 top: removeButtonPlacement === "gutter" ? 0 : 4,

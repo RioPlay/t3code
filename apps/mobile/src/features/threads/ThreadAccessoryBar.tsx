@@ -18,11 +18,18 @@ type AccessoryIcon = ComponentProps<typeof SymbolView>["name"];
 const ACCESSORY_ITEMS: ReadonlyArray<{
   readonly id: ThreadAccessoryItemId;
   readonly label: string;
+  readonly accessibilityLabel?: string;
   readonly icon: AccessoryIcon;
   readonly testID: string;
 }> = [
   { id: "files", label: "Files", icon: "folder", testID: "thread-accessory-files" },
-  { id: "terminal", label: "Term.", icon: "terminal", testID: "thread-accessory-terminal" },
+  {
+    id: "terminal",
+    label: "Term.",
+    accessibilityLabel: "Terminal",
+    icon: "terminal",
+    testID: "thread-accessory-terminal",
+  },
   { id: "review", label: "Review", icon: "text.bubble", testID: "thread-accessory-review" },
   {
     id: "git",
@@ -60,6 +67,7 @@ function AccessoryBadge(props: {
 function AccessoryBarItem(props: {
   readonly id: ThreadAccessoryItemId;
   readonly label: string;
+  readonly accessibilityLabel?: string;
   readonly icon: AccessoryIcon;
   readonly testID: string;
   readonly active: boolean;
@@ -78,10 +86,10 @@ function AccessoryBarItem(props: {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={props.label}
+      accessibilityLabel={props.accessibilityLabel ?? props.label}
+      accessibilityHint={props.disabled ? threadAccessoryDisabledMessage(props.id) : undefined}
       accessibilityState={{ disabled: props.disabled, selected: props.active }}
       testID={props.testID}
-      disabled={props.disabled}
       onPress={() => {
         if (props.disabled) {
           Alert.alert("Unavailable", threadAccessoryDisabledMessage(props.id));

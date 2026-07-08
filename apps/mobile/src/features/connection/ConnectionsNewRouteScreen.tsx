@@ -37,6 +37,7 @@ export function ConnectionsNewRouteScreen({
   const insets = useSafeAreaInsets();
   const [hostInput, setHostInput] = useState("");
   const [codeInput, setCodeInput] = useState("");
+  const [selectedLanEnvironmentKey, setSelectedLanEnvironmentKey] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showScanner, setShowScanner] = useState(params.mode === "scan_qr");
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -61,10 +62,12 @@ export function ConnectionsNewRouteScreen({
   }, [pairingConnectionError]);
 
   const handleHostChange = useCallback((value: string) => {
+    setSelectedLanEnvironmentKey(null);
     setHostInput(value);
   }, []);
 
   const handleCodeChange = useCallback((value: string) => {
+    setSelectedLanEnvironmentKey(null);
     setCodeInput(value);
   }, []);
 
@@ -104,6 +107,7 @@ export function ConnectionsNewRouteScreen({
       try {
         const pairingUrl = extractPairingUrlFromQrPayload(data);
         const { host, code } = parsePairingUrl(pairingUrl);
+        setSelectedLanEnvironmentKey(null);
         setHostInput(host);
         setCodeInput(code);
         onChangeConnectionPairingUrl(pairingUrl);
@@ -129,6 +133,7 @@ export function ConnectionsNewRouteScreen({
       }
 
       const host = environment.httpBaseUrl.replace(/\/$/u, "");
+      setSelectedLanEnvironmentKey(environment.key);
       setHostInput(environment.hostInput);
       setCodeInput("");
       onChangeConnectionPairingUrl(buildPairingUrl(host, ""));
@@ -162,6 +167,7 @@ export function ConnectionsNewRouteScreen({
       />
       <NativeHeaderToolbar placement="right">
         <NativeHeaderToolbar.Button
+          accessibilityLabel={showScanner ? "Close QR scanner" : "Scan pairing QR code"}
           icon={showScanner ? "xmark" : "qrcode.viewfinder"}
           onPress={() => {
             if (showScanner) {
@@ -225,6 +231,7 @@ export function ConnectionsNewRouteScreen({
                 isScanning={lanDiscovery.isScanning}
                 onRefresh={lanDiscovery.refresh}
                 onSelect={handleLanEnvironmentSelect}
+                selectedEnvironmentKey={selectedLanEnvironmentKey}
               />
 
               <View collapsable={false} className="gap-4 rounded-[24px] bg-card p-4">
