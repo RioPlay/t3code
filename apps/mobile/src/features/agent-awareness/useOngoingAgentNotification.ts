@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
-import { Platform, useColorScheme } from "react-native";
-import { useEffect, useMemo } from "react";
+import { AppState, Platform, useColorScheme, type AppStateStatus } from "react-native";
+import { useEffect, useMemo, useState } from "react";
 
 import { useProjects, useThreadShells } from "../../state/entities";
 import { buildLocalAgentActivityAggregate } from "./localAgentActivityAggregate";
@@ -18,11 +18,29 @@ export function useOngoingAgentNotification(): void {
   const projects = useProjects();
   const threads = useThreadShells();
   const colorScheme = useColorScheme() === "light" ? "light" : "dark";
+  // Bump when returning to foreground so permission toggles are re-read.
+  const [appActiveEpoch, setAppActiveEpoch] = useState(0);
 
   const aggregate = useMemo(
     () => buildLocalAgentActivityAggregate({ projects, threads }),
     [projects, threads],
   );
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    const onChange = (next: AppStateStatus) => {
+      if (next === "active") {
+        setAppActiveEpoch((value) => value + 1);
+      }
+    };
+    const subscription = AppState.addEventListener("change", onChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
@@ -45,5 +63,5 @@ export function useOngoingAgentNotification(): void {
     return () => {
       cancelled = true;
     };
-  }, [aggregate, colorScheme]);
+  }, [aggregate, colorScheme, appActiveEpoch]);
 }

@@ -80,7 +80,7 @@ export async function syncOngoingAgentNotification(input: {
   await Notifications.scheduleNotificationAsync({
     identifier: ONGOING_AGENT_NOTIFICATION_TAG,
     content: buildOngoingAgentNotificationContent(input.aggregate, input.colorScheme ?? "dark"),
-    trigger: ongoingAgentNotificationTrigger(),
+    trigger: ongoingAgentNotificationTrigger(input.aggregate),
   });
   ongoingNotificationVisible = true;
   lastPublishedFingerprint = fingerprint;

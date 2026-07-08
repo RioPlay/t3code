@@ -67,11 +67,39 @@ export function ongoingNotificationBodyPassesSec032(body: string): boolean {
   return !FORBIDDEN_BODY_PATTERNS.some((pattern) => pattern.test(body));
 }
 
+/**
+ * Match relay `fcmChannelIdForPhase` so ongoing local notifications land on the
+ * same Android channels as FCM agent-awareness pushes.
+ */
+export function ongoingAgentNotificationChannelId(
+  phase: OngoingAgentNotificationPhase,
+): (typeof AGENT_NOTIFICATION_CHANNEL_IDS)[keyof typeof AGENT_NOTIFICATION_CHANNEL_IDS] {
+  switch (phase) {
+    case "waiting_for_approval":
+      return AGENT_NOTIFICATION_CHANNEL_IDS.approval;
+    case "running":
+      return AGENT_NOTIFICATION_CHANNEL_IDS.running;
+  }
+}
+
+export function ongoingAgentNotificationPriority(
+  phase: OngoingAgentNotificationPhase,
+): Notifications.AndroidNotificationPriority {
+  // Approvals need shade attention; running stays quiet/sticky in the shade.
+  switch (phase) {
+    case "waiting_for_approval":
+      return Notifications.AndroidNotificationPriority.HIGH;
+    case "running":
+      return Notifications.AndroidNotificationPriority.LOW;
+  }
+}
+
 export function buildOngoingAgentNotificationContent(
   aggregate: RelayAgentActivityAggregateState,
   colorScheme: "light" | "dark" = "dark",
 ): Notifications.NotificationContentInput {
   const primary = aggregate.activities[0]!;
+  const phase = primary.phase as OngoingAgentNotificationPhase;
   const collapsedSubtitle =
     aggregate.activeCount === 1
       ? truncateText(primary.status, MAX_STATUS_TEXT_LENGTH)
@@ -85,7 +113,7 @@ export function buildOngoingAgentNotificationContent(
     sticky: true,
     autoDismiss: false,
     sound: false,
-    priority: Notifications.AndroidNotificationPriority.LOW,
+    priority: ongoingAgentNotificationPriority(phase),
     color: agentPhaseAccentColor(primary.phase, colorScheme),
     data: {
       deepLink: primary.deepLink,
@@ -93,6 +121,7 @@ export function buildOngoingAgentNotificationContent(
       threadId: primary.threadId,
       notificationTag: ONGOING_AGENT_NOTIFICATION_TAG,
       phase: primary.phase,
+      channelId: ongoingAgentNotificationChannelId(phase),
     },
   };
 }
@@ -111,6 +140,10 @@ export function ongoingAgentNotificationSummary(aggregate: RelayAgentActivityAgg
   };
 }
 
-export function ongoingAgentNotificationTrigger(): Notifications.NotificationTriggerInput {
-  return { channelId: AGENT_NOTIFICATION_CHANNEL_IDS.running };
+export function ongoingAgentNotificationTrigger(
+  aggregate: RelayAgentActivityAggregateState,
+): Notifications.NotificationTriggerInput {
+  const primary = aggregate.activities[0]!;
+  const phase = primary.phase as OngoingAgentNotificationPhase;
+  return { channelId: ongoingAgentNotificationChannelId(phase) };
 }

@@ -1,6 +1,13 @@
+# QA-010 / AGT: agent-awareness push + ongoing notification shade path.
+# Staging seed is optional — when RELAY_* env is missing, seed no-ops (optional: true)
+# and the flow still verifies the app survives background + cold return.
 appId: ${APP_ID}
 ---
 - runFlow: ../fixtures/auth-bypass.yaml
+- assertVisible:
+    id: "home-screen"
+    optional: true
+# Trigger staging FCM agent-push (waiting_for_approval) when credentials exist.
 - runScript:
     file: ../scripts/seed-relay-push.sh
     optional: true
@@ -8,9 +15,45 @@ appId: ${APP_ID}
       RELAY_TEST_DEVICE_ID: ${RELAY_TEST_DEVICE_ID}
       RELAY_TEST_ENVIRONMENT_ID: ${RELAY_TEST_ENVIRONMENT_ID}
       RELAY_TEST_THREAD_ID: maestro-test-thread
+      RELAY_TEST_PHASE: waiting_for_approval
+# Background so shade / heads-up can present.
 - pressKey: Home
+- extendedWaitUntil:
+    visible:
+      text: ".*approval.*|.*Approval.*|Waiting for approval|T3 Code.*"
+    timeout: 15000
+    optional: true
 - tapOn:
     text: "Waiting for approval"
+    optional: true
+- tapOn:
+    text: ".*approval.*"
+    optional: true
+# Deep link should open a thread when the notification was delivered.
+- assertVisible:
+    id: "thread-screen"
+    optional: true
+# Second phase: running (ongoing / low-priority channel).
+- runScript:
+    file: ../scripts/seed-relay-push.sh
+    optional: true
+    env:
+      RELAY_TEST_DEVICE_ID: ${RELAY_TEST_DEVICE_ID}
+      RELAY_TEST_ENVIRONMENT_ID: ${RELAY_TEST_ENVIRONMENT_ID}
+      RELAY_TEST_THREAD_ID: maestro-test-thread
+      RELAY_TEST_PHASE: running
+- pressKey: Home
+- extendedWaitUntil:
+    visible:
+      text: ".*Working.*|.*running.*|T3 Code.*"
+    timeout: 10000
+    optional: true
+# Return to app and confirm shell still healthy after push path.
+- launchApp:
+    appId: ${APP_ID}
+    clearState: false
+- assertVisible:
+    id: "home-screen"
     optional: true
 - assertVisible:
     id: "thread-screen"

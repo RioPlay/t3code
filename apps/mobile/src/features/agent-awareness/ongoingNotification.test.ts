@@ -5,6 +5,8 @@ import * as Notifications from "expo-notifications";
 
 import {
   buildOngoingAgentNotificationContent,
+  ongoingAgentNotificationChannelId,
+  ongoingAgentNotificationPriority,
   ongoingAgentNotificationTrigger,
   ongoingNotificationBodyPassesSec032,
   ONGOING_AGENT_NOTIFICATION_TAG,
@@ -24,11 +26,15 @@ vi.mock("react-native", () => ({
       return platformState.OS;
     },
   },
+  AppState: {
+    addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+  },
 }));
 
 vi.mock("expo-notifications", () => ({
   AndroidNotificationPriority: {
-    LOW: -1,
+    LOW: "low",
+    HIGH: "high",
   },
   setNotificationHandler: vi.fn(),
   scheduleNotificationAsync: vi.fn(() => Promise.resolve("t3-agent-aggregate")),
@@ -37,6 +43,7 @@ vi.mock("expo-notifications", () => ({
 
 vi.mock("./notificationChannels", () => ({
   AGENT_NOTIFICATION_CHANNEL_IDS: {
+    approval: "agent_approval",
     running: "agent_running",
   },
   ensureAgentNotificationChannels: vi.fn(() => Promise.resolve()),
@@ -91,21 +98,40 @@ describe("ongoing notification model", () => {
     expect(shouldShowOngoingAgentNotification(null)).toBe(false);
   });
 
-  it("builds sticky low-priority Android content with SEC-032-safe body", () => {
+  it("builds sticky Android content with SEC-032-safe body and phase-matched channel", () => {
     const content = buildOngoingAgentNotificationContent(aggregate);
     expect(content.sticky).toBe(true);
     expect(content.sound).toBe(false);
-    expect(content.priority).toBe(-1);
+    expect(content.priority).toBe("high");
     expect(content.data).toEqual({
       deepLink: "/threads/environment-1/thread-approval",
       environmentId: EnvironmentId.make("environment-1"),
       threadId: ThreadId.make("thread-approval"),
       notificationTag: ONGOING_AGENT_NOTIFICATION_TAG,
       phase: "waiting_for_approval",
+      channelId: "agent_approval",
     });
     expect(content.body).toContain("Approval thread");
     expect(content.body).not.toContain("stdout");
     expect(ongoingNotificationBodyPassesSec032(content.body ?? "")).toBe(true);
+  });
+
+  it("routes running primaries to the low-priority agent_running channel", () => {
+    const runningOnly = {
+      ...aggregate,
+      activeCount: 1,
+      activities: [aggregate.activities[1]!],
+    };
+    expect(ongoingAgentNotificationChannelId("running")).toBe("agent_running");
+    expect(ongoingAgentNotificationPriority("running")).toBe("low");
+    expect(ongoingAgentNotificationTrigger(runningOnly)).toEqual({ channelId: "agent_running" });
+    expect(buildOngoingAgentNotificationContent(runningOnly).priority).toBe("low");
+  });
+
+  it("routes approval primaries to the high-priority agent_approval channel", () => {
+    expect(ongoingAgentNotificationChannelId("waiting_for_approval")).toBe("agent_approval");
+    expect(ongoingAgentNotificationPriority("waiting_for_approval")).toBe("high");
+    expect(ongoingAgentNotificationTrigger(aggregate)).toEqual({ channelId: "agent_approval" });
   });
 });
 
@@ -133,8 +159,9 @@ describe("syncOngoingAgentNotification", () => {
       identifier: ONGOING_AGENT_NOTIFICATION_TAG,
       content: expect.objectContaining({
         sticky: true,
+        priority: "high",
       }),
-      trigger: ongoingAgentNotificationTrigger(),
+      trigger: ongoingAgentNotificationTrigger(aggregate),
     });
   });
 
