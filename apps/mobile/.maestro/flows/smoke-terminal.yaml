@@ -1,0 +1,15 @@
+appId: ${APP_ID}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+- tapOn:
+    id: "home-thread-row"
+    index: 0
+- assertVisible:
+    id: "thread-screen"
+- tapOn:
+    id: "thread-accessory-terminal"
+- assertVisible:
+    id: "thread-terminal-screen"
+- back
+- assertVisible:
+    id: "thread-screen"

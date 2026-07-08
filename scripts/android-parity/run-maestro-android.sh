@@ -18,6 +18,7 @@ export METRO_DEV_CLIENT_URL
 MAESTRO_FLOWS=(
   "apps/mobile/.maestro/flows/smoke-launch.yaml"
   "apps/mobile/.maestro/flows/smoke-review.yaml"
+  "apps/mobile/.maestro/flows/smoke-terminal.yaml"
   "apps/mobile/.maestro/flows/smoke-tablet-split.yaml"
   "apps/mobile/.maestro/flows/smoke-composer.yaml"
 )
