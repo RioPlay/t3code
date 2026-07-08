@@ -71,6 +71,10 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
       if (applyingControlledDocument) return@onSelectionChanged
       emitSelection()
     }
+    editText.onPasteImages = { uris ->
+      if (uris.isEmpty()) return@onPasteImages
+      onComposerPasteImages(mapOf("uris" to uris))
+    }
     addView(editText)
   }
 

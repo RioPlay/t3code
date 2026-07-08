@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { Platform } from "react-native";
 
 import {
   resolveNativeReviewDiffView,
@@ -124,5 +125,14 @@ export function shouldUseNitroMarkdown(): boolean {
 }
 
 export function shouldUseNativeComposerEditor(): boolean {
-  return readTruthyPublicEnv("EXPO_PUBLIC_NATIVE_COMPOSER") && hasNativeComposerEditor();
+  if (!hasNativeComposerEditor()) {
+    return false;
+  }
+  if (readFalsyPublicEnv("EXPO_PUBLIC_NATIVE_COMPOSER")) {
+    return false;
+  }
+  if (Platform.OS === "android") {
+    return true;
+  }
+  return readTruthyPublicEnv("EXPO_PUBLIC_NATIVE_COMPOSER");
 }

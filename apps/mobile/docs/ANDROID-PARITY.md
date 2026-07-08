@@ -8,12 +8,12 @@ iOS-only modules remain available on Apple platforms.
 
 Resolved at build time in `src/platform/capabilities.ts`:
 
-| Surface     | Android default               | iOS default                  |
-| ----------- | ----------------------------- | ---------------------------- |
-| Review diff | JS list + highlighter         | Native `T3ReviewDiffSurface` |
-| Markdown    | Nitro markdown                | Native selectable markdown   |
-| Terminal    | WebView xterm                 | Native `T3TerminalView`      |
-| Composer    | Strip chip mode (`TextInput`) | Native `T3ComposerEditor`    |
+| Surface     | Android default           | iOS default                  |
+| ----------- | ------------------------- | ---------------------------- |
+| Review diff | JS list + highlighter     | Native `T3ReviewDiffSurface` |
+| Markdown    | Nitro markdown            | Native selectable markdown   |
+| Terminal    | WebView xterm             | Native `T3TerminalView`      |
+| Composer    | Native `T3ComposerEditor` | Native `T3ComposerEditor`    |
 
 Override locally via repository-root `.env` / `.env.local` (see [`.env.example`](../../../.env.example)):
 
@@ -23,17 +23,18 @@ EXPO_PUBLIC_FORCE_NITRO_MARKDOWN=1     # force Nitro markdown
 EXPO_PUBLIC_TERMINAL_WEBVIEW=1         # force WebView terminal (Android default when unset)
 EXPO_PUBLIC_TERMINAL_WEBVIEW=0         # opt into native terminal on Android
 EXPO_PUBLIC_COMPOSER_CHIP_MODE=strip   # force strip composer chips
+EXPO_PUBLIC_NATIVE_COMPOSER=0          # opt out of native composer on Android
 ```
 
 ## Native modules
 
-| Module               | Android         | Notes                                               |
-| -------------------- | --------------- | --------------------------------------------------- |
-| `t3-native-controls` | Yes             | Hardware keyboard shortcuts                         |
-| `t3-terminal`        | Yes             | Built; WebView is the default surface on Android    |
-| `t3-composer-editor` | No              | iOS only — Android uses `expo-paste-input` fallback |
-| `t3-review-diff`     | No              | iOS only — Android uses JS review screen            |
-| `t3-markdown-text`   | No (selectable) | Nitro markdown covers Android rendering             |
+| Module               | Android         | Notes                                            |
+| -------------------- | --------------- | ------------------------------------------------ |
+| `t3-native-controls` | Yes             | Hardware keyboard shortcuts                      |
+| `t3-terminal`        | Yes             | Built; WebView is the default surface on Android |
+| `t3-composer-editor` | Yes             | Inline chips + clipboard image paste on Android  |
+| `t3-review-diff`     | No              | iOS only — Android uses JS review screen         |
+| `t3-markdown-text`   | No (selectable) | Nitro markdown covers Android rendering          |
 
 Android-specific product features:
 
@@ -101,8 +102,7 @@ skipped unless you merge them manually.
 
 ## Remaining gaps (priority)
 
-1. **Native composer** — port `t3-composer-editor` for inline tokens and rich paste on Android
-2. **Native review** — port or further optimize JS review for large diffs
-3. **Secondary chrome** — continue aligning Android header toolbars with iOS mail-search patterns
-4. **Variant launcher art** — distinct foreground icons per variant (background colors exist today)
-5. **Store readiness** — production cleartext / signing / Play internal track validation
+1. **Native review** — port or further optimize JS review for large diffs
+2. **Secondary chrome** — continue aligning Android header toolbars with iOS mail-search patterns
+3. **Variant launcher art** — distinct foreground icons per variant (background colors exist today)
+4. **Store readiness** — production cleartext / signing / Play internal track validation

@@ -8,12 +8,11 @@ appId: ${APP_ID}
     id: "thread-screen"
 - tapOn:
     id: "thread-composer-input"
-- extendedWaitUntil:
-    visible:
-      id: "composer-strip-coach-mark"
-    timeout: 5000
-- tapOn:
-    text: "Got it"
+- runFlow:
+    when:
+      visible:
+        id: "composer-strip-coach-mark"
+    file: ../fixtures/dismiss-composer-coach-mark.yaml
 - assertVisible:
     id: "thread-composer-attach"
 - assertVisible:

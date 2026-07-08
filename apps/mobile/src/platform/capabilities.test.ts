@@ -44,6 +44,7 @@ describe("resolvePlatformCapabilities", () => {
     delete process.env.EXPO_PUBLIC_FORCE_NITRO_MARKDOWN;
     delete process.env.EXPO_PUBLIC_TERMINAL_WEBVIEW;
     delete process.env.EXPO_PUBLIC_COMPOSER_CHIP_MODE;
+    delete process.env.EXPO_PUBLIC_NATIVE_COMPOSER;
   });
 
   afterEach(() => {
@@ -138,5 +139,20 @@ describe("resolvePlatformCapabilities", () => {
     setExpoViewConfig(["T3ComposerEditor"]);
     const { resolvePlatformCapabilities } = await import("./capabilities");
     expect(resolvePlatformCapabilities().composer.chipMode).toBe("default");
+  });
+
+  it("defaults shouldUseNativeComposerEditor true on Android when native T3ComposerEditor resolves", async () => {
+    platformState.OS = "android";
+    setExpoViewConfig(["T3ComposerEditor"]);
+    const { shouldUseNativeComposerEditor } = await import("./capabilities");
+    expect(shouldUseNativeComposerEditor()).toBe(true);
+  });
+
+  it("opts out of native composer on Android when EXPO_PUBLIC_NATIVE_COMPOSER=0", async () => {
+    platformState.OS = "android";
+    setExpoViewConfig(["T3ComposerEditor"]);
+    process.env.EXPO_PUBLIC_NATIVE_COMPOSER = "0";
+    const { shouldUseNativeComposerEditor } = await import("./capabilities");
+    expect(shouldUseNativeComposerEditor()).toBe(false);
   });
 });
