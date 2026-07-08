@@ -12,8 +12,14 @@ import {
 import type { CustomRenderers } from "react-native-nitro-markdown";
 
 import { CopyTextButton } from "./CopyTextButton";
+import type { MarkdownTableThemeColors } from "./markdownTableTheme";
 import { markdownFileIconSource } from "./markdownFileIcons";
 import { resolveMarkdownLinkPresentation } from "./markdownLinks";
+import {
+  nitroSelectableTextStyle,
+  shouldEnhanceNitroMarkdownSelection,
+} from "./nitroMarkdownSelection";
+import { NitroMarkdownTable } from "./nitroMarkdownTable";
 import { resolveNitroSkillHref } from "./skillTokens";
 
 const failedMarkdownFaviconHosts = new Set<string>();
@@ -91,7 +97,14 @@ export interface NitroMarkdownRendererOptions {
     readonly bodyLineHeight: number;
     readonly codeBlockFontSize: number;
     readonly codeBlockLineHeight: number;
+    readonly h1: number;
+    readonly h2: number;
+    readonly h3: number;
+    readonly h4: number;
+    readonly h5: number;
+    readonly h6: number;
   };
+  readonly tableTheme?: MarkdownTableThemeColors;
   readonly preserveSoftBreaks?: boolean;
 }
 
@@ -109,8 +122,26 @@ export function createNitroMarkdownRenderers(
     markdownHrColor,
     skillTextColor,
     markdownFontSizes,
+    tableTheme,
     preserveSoftBreaks = false,
   } = options;
+  const enhanceSelection = shouldEnhanceNitroMarkdownSelection();
+  const headingFontSize = (level: number) => {
+    switch (level) {
+      case 1:
+        return markdownFontSizes.h1;
+      case 2:
+        return markdownFontSizes.h2;
+      case 3:
+        return markdownFontSizes.h3;
+      case 4:
+        return markdownFontSizes.h4;
+      case 5:
+        return markdownFontSizes.h5;
+      default:
+        return markdownFontSizes.h6;
+    }
+  };
 
   return {
     link: ({ children, href = "" }) => {
@@ -182,6 +213,17 @@ export function createNitroMarkdownRenderers(
               <Renderer key={childKey} node={child} depth={1} inListItem parentIsText={false} />
             );
           }
+          const marker = ordered ? `${start + index}.` : "•";
+          const markerStyle = nitroSelectableTextStyle({
+            width: ordered ? 22 : 12,
+            marginRight: 5,
+            color: inlineTextColor,
+            fontFamily: "DMSans_400Regular",
+            fontSize: markdownFontSizes.m,
+            lineHeight: markdownFontSizes.bodyLineHeight,
+            textAlign: ordered ? "right" : "center",
+          });
+          const item = <Renderer node={child} depth={1} inListItem parentIsText={false} />;
           return (
             <View
               key={childKey}
@@ -191,22 +233,14 @@ export function createNitroMarkdownRenderers(
                 marginBottom: 3,
               }}
             >
-              <NativeText
-                style={{
-                  width: ordered ? 22 : 12,
-                  marginRight: 5,
-                  color: inlineTextColor,
-                  fontFamily: "DMSans_400Regular",
-                  fontSize: markdownFontSizes.m,
-                  lineHeight: markdownFontSizes.bodyLineHeight,
-                  textAlign: ordered ? "right" : "center",
-                }}
-              >
-                {ordered ? `${start + index}.` : "•"}
-              </NativeText>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Renderer node={child} depth={1} inListItem parentIsText={false} />
-              </View>
+              {enhanceSelection ? (
+                <NativeText selectable style={markerStyle}>
+                  {marker}
+                </NativeText>
+              ) : (
+                <NativeText style={markerStyle}>{marker}</NativeText>
+              )}
+              <View style={{ flex: 1, minWidth: 0 }}>{item}</View>
             </View>
           );
         })}
@@ -216,17 +250,66 @@ export function createNitroMarkdownRenderers(
       const value = content ?? "";
       return (
         <NativeText
-          style={{
+          selectable={enhanceSelection}
+          style={nitroSelectableTextStyle({
             color: inlineCodeTextColor,
             fontFamily: "ui-monospace",
             fontSize: markdownFontSizes.codeBlockFontSize,
             lineHeight: markdownFontSizes.bodyLineHeight,
-          }}
+          })}
         >
           {value}
         </NativeText>
       );
     },
+    ...(enhanceSelection
+      ? {
+          paragraph: ({ children }) => (
+            <NativeText
+              selectable
+              style={nitroSelectableTextStyle({
+                color: markdownBodyColor,
+                fontFamily: "DMSans_400Regular",
+                fontSize: markdownFontSizes.m,
+                lineHeight: markdownFontSizes.bodyLineHeight,
+                marginBottom: 10,
+              })}
+            >
+              {children}
+            </NativeText>
+          ),
+          heading: ({ children, level = 1 }) => (
+            <NativeText
+              selectable
+              style={nitroSelectableTextStyle({
+                color: markdownBodyColor,
+                fontFamily: "DMSans_700Bold",
+                fontSize: headingFontSize(level),
+                lineHeight: markdownFontSizes.bodyLineHeight,
+                fontWeight: "700",
+                marginTop: 18,
+                marginBottom: 8,
+              })}
+            >
+              {children}
+            </NativeText>
+          ),
+          ...(tableTheme
+            ? {
+                table: ({ node, Renderer }) => (
+                  <NitroMarkdownTable
+                    node={node}
+                    Renderer={Renderer}
+                    tableTheme={tableTheme}
+                    bodyColor={markdownBodyColor}
+                    fontSize={markdownFontSizes.m}
+                    lineHeight={markdownFontSizes.bodyLineHeight}
+                  />
+                ),
+              }
+            : {}),
+        }
+      : {}),
     ...(preserveSoftBreaks
       ? {
           soft_break: () => <NativeText>{"\n"}</NativeText>,

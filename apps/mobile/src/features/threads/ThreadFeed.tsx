@@ -402,6 +402,7 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
         markdownHrColor,
         skillTextColor,
         markdownFontSizes,
+        tableTheme,
         preserveSoftBreaks,
       });
 

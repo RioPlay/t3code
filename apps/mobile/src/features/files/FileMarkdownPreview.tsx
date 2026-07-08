@@ -70,6 +70,7 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
       markdownHrColor: horizontalRule,
       skillTextColor: skillText,
       markdownFontSizes,
+      tableTheme,
     });
 
     return {
