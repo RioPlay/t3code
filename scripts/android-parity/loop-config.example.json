@@ -1,0 +1,56 @@
+{
+  "project": "t3code-android-parity",
+  "fork": "RioPlay/t3code",
+  "phase": "post_program",
+  "completion_mode": "supervised",
+  "merge_policy": "local_gate",
+  "force_polish_gates": false,
+  "decisions": {
+    "review_strategy": "js-tier1",
+    "markdown_strategy": "nitro-first",
+    "store_track": "play-internal"
+  },
+  "gstack": {
+    "pre_native_eng_review": true,
+    "design_review_steps": ["s06", "s07", "s09b", "s14", "s15", "s16", "s27b"],
+    "weekly_health_check": true
+  },
+  "env": {
+    "EXPO_PUBLIC_FORCE_JS_REVIEW": "1",
+    "EXPO_PUBLIC_FORCE_NITRO_MARKDOWN": "1",
+    "EXPO_PUBLIC_TERMINAL_WEBVIEW": "1",
+    "EXPO_PUBLIC_COMPOSER_CHIP_MODE": "strip"
+  },
+  "post_program": {
+    "steps": {
+      "pp01": {
+        "pr": 27,
+        "branch": "fix/android-new-thread-creation",
+        "title": "Android new thread creation and UX polish",
+        "required": true
+      },
+      "pp02": {
+        "pr": 28,
+        "branch": "android-parity/s05-terminal-default",
+        "title": "Native terminal default (optional stretch)",
+        "required": false,
+        "status": "optional"
+      },
+      "pp03": {
+        "pr": 29,
+        "branch": "android-parity/s07-composer-strip-polish",
+        "title": "Composer strip polish (optional stretch)",
+        "required": false,
+        "status": "optional"
+      },
+      "pp04": {
+        "pr": 30,
+        "branch": "android-parity/s08-native-composer-scaffold",
+        "title": "Native composer scaffold (optional stretch)",
+        "required": false,
+        "status": "optional"
+      }
+    }
+  },
+  "notes": "Copy to scratch/android-parity/loop-config.json. Set fork to your GitHub fork. Use run-post-program.sh after s28."
+}

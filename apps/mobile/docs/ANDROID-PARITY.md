@@ -83,6 +83,22 @@ CI (`/.github/workflows/mobile-qa.yml`):
 
 Review perf proxy gate: `src/features/review/reviewPerfGate.test.ts` (REV-007 thresholds).
 
+## Post-program (fork completion)
+
+After the s01–s26 stack lands on your fork, run the post-program loop to merge
+follow-up PRs (new-thread entry points, LAN pairing, UX polish):
+
+```bash
+cp scripts/android-parity/loop-config.example.json scratch/android-parity/loop-config.json
+# Edit fork → your GitHub fork (e.g. RioPlay/t3code)
+scripts/android-parity/sync-loop-state.sh
+scripts/android-parity/run-post-program.sh
+```
+
+`run-post-program.sh` runs `gate.sh --quick`, merges required PRs via `advance-pr.sh`,
+and pulls `main`. Optional stretch PRs (native terminal default, composer scaffold) are
+skipped unless you merge them manually.
+
 ## Remaining gaps (priority)
 
 1. **Native composer** — port `t3-composer-editor` for inline tokens and rich paste on Android
