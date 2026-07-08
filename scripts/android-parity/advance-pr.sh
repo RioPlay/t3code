@@ -111,6 +111,6 @@ mv "$TMP" "$STATE_FILE"
 echo "==> Syncing main"
 git fetch origin main
 git checkout main
-git pull origin main
+git reset --hard origin/main
 
 echo "==> Advanced: $STEP_ID merged → current_step=$NEXT_STEP"

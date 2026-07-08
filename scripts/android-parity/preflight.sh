@@ -12,9 +12,17 @@ python3 scripts/validate-plan.py scratch/android-parity/implementation.md
 
 for f in scratch/android-parity/AGENT-LOOP.md scratch/android-parity/implementation.md \
   scratch/android-parity/loop-config.json scripts/android-parity/gate.sh \
-  scripts/android-parity/advance-pr.sh; do
+  scripts/android-parity/advance-pr.sh scripts/android-parity/sync-loop-state.sh \
+  scripts/android-parity/run-post-program.sh; do
   test -f "$f" || { echo "missing $f" >&2; exit 1; }
 done
+
+if [[ ! -f scratch/android-parity/loop-config.json ]]; then
+  if [[ -f scripts/android-parity/loop-config.example.json ]]; then
+    cp scripts/android-parity/loop-config.example.json scratch/android-parity/loop-config.json
+    echo "Created loop-config.json from example — set fork to your GitHub fork"
+  fi
+fi
 
 if [[ ! -f scratch/android-parity/loop-state.json ]]; then
   cp scratch/android-parity/loop-state.template.json scratch/android-parity/loop-state.json
