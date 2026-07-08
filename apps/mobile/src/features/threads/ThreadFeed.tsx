@@ -89,6 +89,7 @@ import {
   decorateNitroMarkdownWithSkills,
 } from "@t3tools/mobile-markdown-text";
 import { resolveMarkdownLinkPresentation } from "@t3tools/mobile-markdown-text/links";
+import { resolveMarkdownTableThemeColors } from "../../lib/markdownTableTheme";
 import {
   deriveThreadFeedPresentation,
   type ThreadFeedEntry,
@@ -289,6 +290,11 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
     const markdownUserInlineCodeText = colors.userInlineCodeText;
     const markdownUserFenceBg = colors.userFenceBackground;
     const markdownUserFenceText = colors.userFenceText;
+    const tableColors = resolveMarkdownTableThemeColors(colorScheme === "dark" ? "dark" : "light", {
+      body: markdownBodyColor,
+      strong: markdownStrongColor,
+      horizontalRule: markdownHrColor,
+    });
 
     const baseTheme: PartialMarkdownTheme = {
       colors: {
@@ -299,11 +305,11 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
         border: markdownHrColor,
         surfaceLight: markdownBlockquoteBg,
         accent: markdownLinkColor,
-        tableBorder: markdownHrColor,
-        tableHeader: markdownBlockquoteBg,
-        tableHeaderText: markdownStrongColor,
-        tableRowOdd: "transparent",
-        tableRowEven: "transparent",
+        tableBorder: tableColors.tableBorder,
+        tableHeader: tableColors.tableHeader,
+        tableHeaderText: tableColors.tableHeaderText,
+        tableRowOdd: tableColors.tableRowOdd,
+        tableRowEven: tableColors.tableRowEven,
       },
       spacing: {
         xs: 4,

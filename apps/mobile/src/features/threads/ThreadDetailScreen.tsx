@@ -38,6 +38,11 @@ import type { StatusTone } from "../../components/StatusPill";
 import type { DraftComposerImageAttachment } from "../../lib/composerImages";
 import { CHAT_CONTENT_MAX_WIDTH, type LayoutVariant } from "../../lib/layout";
 import { scopedThreadKey } from "../../lib/scopedEntities";
+import {
+  resolveComposerContentInsetHeight,
+  resolveComposerInsetAdjustment,
+  resolveEstimatedComposerOverlayHeight,
+} from "../../lib/threadComposerInset";
 import type {
   PendingApproval,
   PendingUserInput,
@@ -186,12 +191,6 @@ function useStreamingHaptics(threadId: ThreadId, feed: ReadonlyArray<ThreadFeedE
   }, [threadId, feed]);
 }
 
-// Pre-measurement estimate for the working pill's slot (the real height is
-// measured via onComposerLayout since the pill lives inside the composer
-// overlay). Matches the rendered pill: pt-2 + pb-2 (16) wrapping a bordered
-// px-3/py-2 row (~36), so ~52 — keep it in sync with WorkingDurationPill.
-const WORKING_INDICATOR_HEIGHT = 52;
-
 const WorkingDurationPill = memo(function WorkingDurationPill(props: {
   readonly startedAt: string;
 }) {
@@ -263,10 +262,6 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   })();
   const selectedThreadFeed = props.selectedThreadFeed;
   const composerChrome = composerExpanded ? COMPOSER_EXPANDED_CHROME : COMPOSER_COLLAPSED_CHROME;
-  const composerOverlapHeight = composerChrome + composerBottomInset;
-  const activeWorkIndicatorHeight = props.activeWorkStartedAt ? WORKING_INDICATOR_HEIGHT : 0;
-  const estimatedOverlayHeight =
-    composerOverlapHeight + activeWorkIndicatorHeight + footerChromeInset;
   // The overlay's measured height includes the home-indicator inset (the
   // composer pads it), but contentInsetAdjustmentBehavior="automatic" makes
   // UIKit add the safe-area bottom to the content inset AGAIN — leaving a
@@ -276,11 +271,28 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   // its end-scroll math matches the real resting position.
   const nativeInsetOvercount =
     props.usesAutomaticContentInsets === true && Platform.OS === "ios" ? insets.bottom : 0;
+  const hasPendingInteraction =
+    props.activePendingApproval !== null || props.activePendingUserInput !== null;
+  const estimatedOverlayHeight = resolveEstimatedComposerOverlayHeight({
+    composerChrome,
+    composerBottomInset,
+    activeWorkStartedAt: props.activeWorkStartedAt,
+    hasPendingInteraction,
+    footerChromeInset,
+  });
+  const contentInsetHeight = resolveComposerContentInsetHeight({
+    estimatedOverlayHeight,
+    nativeInsetOvercount,
+  });
+  const insetAdjustment = resolveComposerInsetAdjustment({
+    footerChromeInset,
+    nativeInsetOvercount,
+  });
   const { contentInsetEndAdjustment, onComposerLayout } = useKeyboardChatComposerInset(
     listRef,
     composerOverlayRef,
-    Math.max(0, estimatedOverlayHeight - nativeInsetOvercount),
-    -nativeInsetOvercount,
+    contentInsetHeight,
+    insetAdjustment,
   );
   const { freeze, scrollMessageToEnd } = useKeyboardScrollToEnd({ listRef });
   const showContent = props.showContent ?? true;

@@ -4,13 +4,14 @@ import {
   type NodeStyleOverrides,
   type PartialMarkdownTheme,
 } from "react-native-nitro-markdown";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, useColorScheme, View } from "react-native";
 
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
 import {
   resolveMarkdownFontSizes,
   resolveNativeMarkdownTypography,
 } from "../../lib/appearancePreferences";
+import { resolveMarkdownTableThemeColors } from "../../lib/markdownTableTheme";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import {
@@ -29,6 +30,7 @@ interface MarkdownPreviewStyles {
 }
 
 function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): MarkdownPreviewStyles {
+  const colorScheme = useColorScheme();
   const { appearance } = useAppearancePreferences();
   const markdownFontSizes = useMemo(
     () => resolveMarkdownFontSizes(appearance.baseFontSize),
@@ -61,6 +63,11 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
       skillTextColor: skillText,
       markdownFontSizes,
     });
+    const tableColors = resolveMarkdownTableThemeColors(colorScheme === "dark" ? "dark" : "light", {
+      body,
+      strong,
+      horizontalRule,
+    });
 
     return {
       theme: {
@@ -72,9 +79,11 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
           border: horizontalRule,
           surfaceLight: blockquoteBackground,
           accent: link,
-          tableBorder: horizontalRule,
-          tableHeader: blockquoteBackground,
-          tableHeaderText: strong,
+          tableBorder: tableColors.tableBorder,
+          tableHeader: tableColors.tableHeader,
+          tableHeaderText: tableColors.tableHeaderText,
+          tableRowOdd: tableColors.tableRowOdd,
+          tableRowEven: tableColors.tableRowEven,
           code: codeText,
           codeBackground,
         },
@@ -146,6 +155,7 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
     blockquoteBackground,
     blockquoteBorder,
     body,
+    colorScheme,
     codeBackground,
     codeText,
     horizontalRule,

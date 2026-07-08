@@ -47,6 +47,11 @@ import {
 import { ControlPill, ControlPillMenu } from "../../components/ControlPill";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import type { DraftComposerImageAttachment } from "../../lib/composerImages";
+import {
+  composerAttachButtonLabel,
+  composerModelButtonLabel,
+  composerOptionsButtonLabel,
+} from "../../lib/composerToolbarLabels";
 import { removeComposerInlineToken } from "../../lib/composerInlineTokenEditing";
 import { useStableComposerInlineTokens } from "../../lib/useStableComposerInlineTokens";
 import { platformCapabilities } from "../../platform/capabilities";
@@ -599,6 +604,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     () => providerOptionsConfigurationLabel(providerOptionDescriptors),
     [providerOptionDescriptors],
   );
+  const attachButtonLabel = composerAttachButtonLabel();
+  const modelButtonLabel = composerModelButtonLabel(
+    currentModelOption?.label ?? currentModelSelection.model,
+  );
+  const optionsButtonLabel = composerOptionsButtonLabel(configurationLabel);
   const modelMenuActions = useMemo(
     () =>
       providerGroups.map((group) => ({
@@ -894,7 +904,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 fadeTransparent={toolbarFadeTransparent}
               >
                 <ComposerToolbarButton
+                  accessibilityLabel={attachButtonLabel ?? "Attach"}
                   icon="plus"
+                  label={attachButtonLabel}
                   onPress={() => void props.onPickDraftImages()}
                   showChevron={false}
                 />
@@ -907,7 +919,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                     iconNode={
                       <ProviderIcon provider={currentModelOption?.providerDriver} size={16} />
                     }
-                    label={currentModelOption?.label ?? currentModelSelection.model}
+                    label={modelButtonLabel}
                   />
                 </ControlPillMenu>
                 <ControlPillMenu
@@ -917,7 +929,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                   <ComposerToolbarTrigger
                     accessibilityLabel="Configuration"
                     icon="slider.horizontal.3"
-                    label={configurationLabel}
+                    label={optionsButtonLabel}
                   />
                 </ControlPillMenu>
                 {showStopAction ? (
