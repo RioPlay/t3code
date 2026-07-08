@@ -34,6 +34,24 @@ jobs:
         working-directory: apps/mobile
         run: npx expo-doctor
 
+  mobile_review_perf_gate:
+    name: Mobile review perf gate (REV-007)
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: REV-007 perf gate
+        run: vp test run apps/mobile/src/features/review/reviewPerfGate.test.ts
+
   mobile_ios_regression_unit:
     name: Mobile iOS regression (FORCE_* dogfood)
     runs-on: blacksmith-8vcpu-ubuntu-2404

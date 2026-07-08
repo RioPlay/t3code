@@ -46,6 +46,11 @@ if echo "$CHANGED" | grep -qE '^apps/mobile/'; then
     vp test run apps/mobile
 fi
 
+if echo "$CHANGED" | grep -qE '^apps/mobile/src/features/review/|^apps/mobile/src/features/diffs/'; then
+  echo "==> REV-007 review perf gate"
+  vp test run apps/mobile/src/features/review/reviewPerfGate.test.ts
+fi
+
 if echo "$CHANGED" | grep -qE 'apps/mobile/modules/.*\.(kt|swift)'; then
   echo "==> vp run lint:mobile"
   vp run lint:mobile
