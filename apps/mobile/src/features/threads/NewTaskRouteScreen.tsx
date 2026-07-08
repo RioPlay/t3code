@@ -1,11 +1,12 @@
-import { NativeHeaderToolbar } from "../../native/StackHeader";
+import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useNavigation } from "@react-navigation/native";
 import { SymbolView } from "expo-symbols";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColor } from "../../lib/useThemeColor";
+import { HeaderIconButton } from "../../components/HeaderIconButton";
 
 import { AppText as Text } from "../../components/AppText";
 import { ProjectFavicon } from "../../components/ProjectFavicon";
@@ -14,6 +15,8 @@ import type { WorkspaceState } from "../../state/workspaceModel";
 import { useWorkspaceState } from "../../state/workspace";
 import { groupProjectsByRepository } from "../../lib/repositoryGroups";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { BuildVariantBanner } from "../../components/BuildVariantBanner";
+import { deriveWorkspaceEmptyStateAction } from "../home/workspace-empty-state-action";
 
 function deriveProjectEmptyState(catalogState: WorkspaceState): {
   readonly title: string;
@@ -108,9 +111,24 @@ export function NewTaskRouteScreen() {
     return nextItems;
   }, [repositoryGroups]);
   const projectEmptyState = deriveProjectEmptyState(catalogState);
+  const emptyStateAction = deriveWorkspaceEmptyStateAction(catalogState);
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
+      <NativeStackScreenOptions
+        options={{
+          headerRight:
+            Platform.OS === "android"
+              ? () => (
+                  <HeaderIconButton
+                    accessibilityLabel="Add project"
+                    icon="plus"
+                    onPress={() => navigation.navigate("NewTaskSheet", { screen: "AddProject" })}
+                  />
+                )
+              : undefined,
+        }}
+      />
       <NativeHeaderToolbar placement="right">
         {layout.usesSplitView ? (
           <NativeHeaderToolbar.Button
@@ -127,6 +145,7 @@ export function NewTaskRouteScreen() {
         />
       </NativeHeaderToolbar>
 
+      <BuildVariantBanner />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
@@ -146,16 +165,20 @@ export function NewTaskRouteScreen() {
             <Text className="text-center text-sm leading-normal text-foreground-muted">
               {projectEmptyState.detail}
             </Text>
-            {!catalogState.hasReadyEnvironment ? (
+            {emptyStateAction ? (
               <Pressable
                 className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
-                onPress={() => navigation.navigate("ConnectionsNew")}
+                onPress={() =>
+                  emptyStateAction.kind === "add-connection"
+                    ? navigation.navigate("ConnectionsNew")
+                    : navigation.navigate("SettingsSheet", { screen: "SettingsEnvironments" })
+                }
               >
                 <Text className="text-sm font-t3-bold text-primary-foreground">
-                  Add environment
+                  {emptyStateAction.label}
                 </Text>
               </Pressable>
-            ) : (
+            ) : catalogState.hasReadyEnvironment ? (
               <Pressable
                 className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
                 onPress={() => navigation.navigate("NewTaskSheet", { screen: "AddProject" })}
@@ -164,7 +187,7 @@ export function NewTaskRouteScreen() {
                   Add new project
                 </Text>
               </Pressable>
-            )}
+            ) : null}
           </View>
         ) : (
           <View collapsable={false} className="overflow-hidden rounded-[24px] bg-card">

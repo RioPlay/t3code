@@ -4053,6 +4053,15 @@ function ChatViewContent(props: ChatViewProps) {
         streaming: false,
       },
     ]);
+
+    // Ensure submitting a new message scrolls the timeline to show it ("scroll to bottom").
+    // We set anchoring-new-turn for response streaming, but explicitly drive to the
+    // live edge here so the just-sent user message reliably enters view even under
+    // virtualization/measurement timing. The reveal logic then keeps the turn visible.
+    requestAnimationFrame(() => {
+      legendListRef.current?.scrollToEnd?.({ animated: true });
+    });
+
     setThreadError(threadIdForSend, null);
     if (expiredTerminalContextCount > 0) {
       const toastCopy = buildExpiredTerminalContextToastCopy(
@@ -4490,6 +4499,11 @@ function ChatViewContent(props: ChatViewProps) {
           streaming: false,
         },
       ]);
+
+      // Ensure submitting (plan follow-up) scrolls the timeline to show the new message.
+      requestAnimationFrame(() => {
+        legendListRef.current?.scrollToEnd?.({ animated: true });
+      });
 
       const settingsResult = await persistThreadSettingsForNextTurn({
         threadId: threadIdForSend,

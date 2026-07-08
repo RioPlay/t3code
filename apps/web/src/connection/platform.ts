@@ -21,6 +21,7 @@ import {
   PrimaryConnectionTarget,
   Wakeups,
 } from "@t3tools/client-runtime/connection";
+import { noopLanDiscoveryBrowserLayer } from "@t3tools/client-runtime/connection/lanDiscoveryBrowser";
 import { bootstrapRemoteBearerSession } from "@t3tools/client-runtime/authorization";
 import { fetchRemoteEnvironmentDescriptor } from "@t3tools/client-runtime/environment";
 import { managedRelayAccountChanges, managedRelaySessionAtom } from "@t3tools/client-runtime/relay";
@@ -605,7 +606,8 @@ type ConnectionPlatformLayerSource =
   | typeof capabilitiesLayer
   | typeof platformConnectionSourceLayer
   | typeof environmentOwnedDataCleanupLayer
-  | typeof rpcRequestObserverLayer;
+  | typeof rpcRequestObserverLayer
+  | typeof noopLanDiscoveryBrowserLayer;
 
 export const connectionPlatformLayer: Layer.Layer<
   Layer.Success<ConnectionPlatformLayerSource>,
@@ -619,4 +621,5 @@ export const connectionPlatformLayer: Layer.Layer<
   platformConnectionSourceLayer,
   environmentOwnedDataCleanupLayer,
   rpcRequestObserverLayer,
+  noopLanDiscoveryBrowserLayer,
 );

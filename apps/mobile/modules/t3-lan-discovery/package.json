@@ -1,0 +1,17 @@
+{
+  "name": "@t3tools/mobile-lan-discovery",
+  "version": "0.0.0",
+  "private": true,
+  "expo-module": {
+    "ios": {
+      "modules": [
+        "T3LanDiscoveryModule"
+      ]
+    },
+    "android": {
+      "modules": [
+        "expo.modules.t3landiscovery.T3LanDiscoveryModule"
+      ]
+    }
+  }
+}

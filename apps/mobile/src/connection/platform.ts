@@ -29,6 +29,7 @@ import { loadOrCreateAgentAwarenessDeviceId } from "../lib/storage";
 import { appAtomRegistry } from "../state/atom-registry";
 import { clearThreadOutboxEnvironment } from "../state/thread-outbox";
 import { clearComposerDraftsEnvironment } from "../state/use-composer-drafts";
+import { lanDiscoveryBrowserLayer } from "./lanDiscoveryPlatform";
 import { connectionStorageLayer } from "./storage";
 
 function networkStatus(state: Network.NetworkState): "unknown" | "offline" | "online" {
@@ -195,7 +196,8 @@ type ConnectionPlatformLayerSource =
   | typeof wakeupsLayer
   | typeof capabilitiesLayer
   | typeof platformConnectionSourceLayer
-  | typeof environmentOwnedDataCleanupLayer;
+  | typeof environmentOwnedDataCleanupLayer
+  | typeof lanDiscoveryBrowserLayer;
 
 export const connectionPlatformLayer: Layer.Layer<
   Layer.Success<ConnectionPlatformLayerSource>,
@@ -208,4 +210,5 @@ export const connectionPlatformLayer: Layer.Layer<
   capabilitiesLayer,
   platformConnectionSourceLayer,
   environmentOwnedDataCleanupLayer,
+  lanDiscoveryBrowserLayer,
 );

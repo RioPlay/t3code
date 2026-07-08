@@ -7,6 +7,10 @@
       "types": "./src/connection/index.ts",
       "default": "./src/connection/index.ts"
     },
+    "./connection/lanDiscoveryBrowser": {
+      "types": "./src/connection/lanDiscoveryBrowser.ts",
+      "default": "./src/connection/lanDiscoveryBrowser.ts"
+    },
     "./authorization": {
       "types": "./src/authorization/index.ts",
       "default": "./src/authorization/index.ts"
@@ -50,6 +54,10 @@
     "./state/connections": {
       "types": "./src/state/connections.ts",
       "default": "./src/state/connections.ts"
+    },
+    "./state/lanDiscovery": {
+      "types": "./src/state/lanDiscovery.ts",
+      "default": "./src/state/lanDiscovery.ts"
     },
     "./state/entities": {
       "types": "./src/state/entities.ts",

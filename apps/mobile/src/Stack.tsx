@@ -55,6 +55,9 @@ const SHEET_BACKGROUND_COLOR =
   Platform.OS === "ios"
     ? DynamicColorIOS({ light: "rgba(242, 242, 247, 0.98)", dark: "rgba(14, 14, 14, 0.98)" })
     : undefined;
+const PLATFORM_MODAL_PRESENTATION = Platform.OS === "ios" ? "formSheet" : "modal";
+const platformSheetDetents = (detents: number[]): number[] | undefined =>
+  Platform.OS === "ios" ? detents : undefined;
 
 type AppScreenOptions = NativeStackNavigationOptions & {
   readonly unstable_navigationItemStyle?: "editor";
@@ -345,8 +348,8 @@ export const RootStack = createNativeStackNavigator({
       screen: ReviewCommentComposerSheet,
       linking: `${THREAD_LINKING_PREFIX}/review-comment`,
       options: {
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.55, 0.92],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
         sheetGrabberVisible: true,
       },
     }),
@@ -371,8 +374,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitOverviewSheet,
       linking: `${THREAD_LINKING_PREFIX}/git`,
       options: {
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.55, 0.92],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
         sheetGrabberVisible: true,
       },
     }),
@@ -380,8 +383,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitCommitSheet,
       linking: `${THREAD_LINKING_PREFIX}/git/commit`,
       options: {
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.55, 0.92],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
         sheetGrabberVisible: true,
       },
     }),
@@ -389,8 +392,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitBranchesSheet,
       linking: `${THREAD_LINKING_PREFIX}/git/branches`,
       options: {
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.55, 0.92],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
         sheetGrabberVisible: true,
       },
     }),
@@ -398,8 +401,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitConfirmSheet,
       linking: `${THREAD_LINKING_PREFIX}/git-confirm`,
       options: {
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.45, 0.7],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.45, 0.7]),
         sheetGrabberVisible: true,
       },
     }),
@@ -409,8 +412,8 @@ export const RootStack = createNativeStackNavigator({
       options: {
         gestureEnabled: true,
         headerShown: false,
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.7, 0.92],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.7, 0.92]),
         sheetGrabberVisible: true,
       },
     }),
@@ -419,8 +422,8 @@ export const RootStack = createNativeStackNavigator({
       linking: "connections",
       options: {
         title: "Environments",
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.55, 0.7],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.55, 0.7]),
         sheetGrabberVisible: true,
       },
     }),
@@ -428,8 +431,8 @@ export const RootStack = createNativeStackNavigator({
       screen: ConnectionsNewRouteScreen,
       linking: "connections/new",
       options: {
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.55, 0.7],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.55, 0.7]),
         sheetGrabberVisible: true,
       },
     }),
@@ -443,8 +446,8 @@ export const RootStack = createNativeStackNavigator({
       options: {
         gestureEnabled: true,
         headerShown: false,
-        presentation: "formSheet",
-        sheetAllowedDetents: [0.92],
+        presentation: PLATFORM_MODAL_PRESENTATION,
+        sheetAllowedDetents: platformSheetDetents([0.92]),
         sheetGrabberVisible: true,
       },
     }),

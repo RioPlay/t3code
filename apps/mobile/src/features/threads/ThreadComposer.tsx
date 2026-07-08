@@ -837,7 +837,12 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
           {!isExpanded && props.draftAttachments.length > 0 ? (
             <View style={{ flexDirection: "row", gap: 4, paddingLeft: 4 }}>
               {props.draftAttachments.slice(0, 3).map((image) => (
-                <Pressable key={image.id} onPress={() => onPressImage(image.previewUri)}>
+                <Pressable
+                  key={image.id}
+                  accessibilityLabel="Preview attached image"
+                  accessibilityRole="imagebutton"
+                  onPress={() => onPressImage(image.previewUri)}
+                >
                   <Image
                     source={{ uri: image.previewUri }}
                     className="bg-subtle"
@@ -871,9 +876,15 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
           {!isExpanded ? (
             <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(100)}>
               {showStopAction ? (
-                <ControlPill icon="stop.fill" variant="danger" onPress={props.onStopThread} />
+                <ControlPill
+                  accessibilityLabel="Stop agent"
+                  icon="stop.fill"
+                  variant="danger"
+                  onPress={props.onStopThread}
+                />
               ) : (
                 <ControlPill
+                  accessibilityLabel={sendLabel}
                   icon="arrow.up"
                   variant="primary"
                   disabled={!canSend}
@@ -922,6 +933,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 </ControlPillMenu>
                 {showStopAction ? (
                   <ComposerToolbarButton
+                    accessibilityLabel="Stop agent"
                     icon="stop.fill"
                     variant="danger"
                     onPress={props.onStopThread}

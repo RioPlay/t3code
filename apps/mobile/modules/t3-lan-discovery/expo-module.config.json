@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["T3LanDiscoveryModule"],
+    "podspecPath": "ios/T3LanDiscovery.podspec"
+  },
+  "android": {
+    "modules": ["expo.modules.t3landiscovery.T3LanDiscoveryModule"]
+  }
+}

@@ -13,7 +13,7 @@ import type {
   SidebarThreadSortOrder,
 } from "@t3tools/contracts";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -22,6 +22,8 @@ import {
 } from "../../lib/nativeStackInsets";
 import { useThemeColor } from "../../lib/useThemeColor";
 
+import { AppText as Text } from "../../components/AppText";
+import { BuildVariantBanner } from "../../components/BuildVariantBanner";
 import { EmptyState } from "../../components/EmptyState";
 import type { WorkspaceState } from "../../state/workspaceModel";
 import type { SavedRemoteConnection } from "../../lib/connection";
@@ -47,6 +49,7 @@ import { buildHomeThreadGroups, type HomeProjectSortOrder } from "./homeThreadLi
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { WorkspaceConnectionStatus } from "./WorkspaceConnectionStatus";
 import { shouldShowWorkspaceConnectionStatus } from "./workspace-connection-status";
+import { deriveWorkspaceEmptyStateAction } from "./workspace-empty-state-action";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -343,6 +346,7 @@ export function HomeScreen(props: HomeScreenProps) {
     catalogState: props.catalogState,
     projectCount: props.projects.length,
   });
+  const emptyStateAction = deriveWorkspaceEmptyStateAction(props.catalogState);
   const connectionStatus =
     shouldShowConnectionStatus && Platform.OS !== "ios" ? (
       <View
@@ -363,17 +367,32 @@ export function HomeScreen(props: HomeScreenProps) {
         }}
       >
         <View className="w-full max-w-[430px]">
+          <BuildVariantBanner />
           <EmptyState
             title={emptyState.title}
             detail={emptyState.detail}
-            actionLabel={!props.catalogState.hasReadyEnvironment ? "Add environment" : undefined}
-            onAction={!props.catalogState.hasReadyEnvironment ? props.onAddConnection : undefined}
+            actionLabel={emptyStateAction?.label}
+            onAction={
+              emptyStateAction?.kind === "add-connection"
+                ? props.onAddConnection
+                : emptyStateAction?.kind === "open-environments"
+                  ? props.onOpenEnvironments
+                  : undefined
+            }
             variant="plain"
           />
           {emptyState.loading ? (
             <View className="mt-4 items-center">
               <ActivityIndicator color={accentColor} />
             </View>
+          ) : null}
+          {!emptyState.loading && props.onStartNewTask ? (
+            <Pressable
+              className="mt-4 self-center rounded-full bg-primary px-5 py-2.5 active:opacity-70"
+              onPress={props.onStartNewTask}
+            >
+              <Text className="text-sm font-t3-bold text-primary-foreground">New task</Text>
+            </Pressable>
           ) : null}
         </View>
         {connectionStatus}
@@ -383,6 +402,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const listHeader = (
     <>
+      <BuildVariantBanner />
       {Platform.OS === "ios" ? null : <HomeTopContentSpacer topInset={insets.top} />}
 
       {shouldShowConnectionStatus && Platform.OS === "ios" ? (

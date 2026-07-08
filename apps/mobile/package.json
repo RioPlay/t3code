@@ -10,10 +10,11 @@
     "start:dev": "APP_VARIANT=development expo start",
     "start:preview": "APP_VARIANT=preview expo start",
     "start:prod": "APP_VARIANT=production expo start",
-    "android": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform android && expo run:android",
-    "android:dev": "APP_VARIANT=development EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform android && expo run:android",
-    "android:preview": "APP_VARIANT=preview EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform android && expo run:android",
-    "android:prod": "APP_VARIANT=production EXPO_NO_GIT_STATUS=1 expo prebuild --clean --platform android && expo run:android",
+    "android": "EXPO_NO_GIT_STATUS=1 node scripts/with-android-env.mjs bunx expo prebuild --clean --platform android && node scripts/with-android-env.mjs bunx expo run:android",
+    "android:dev": "APP_VARIANT=development EXPO_NO_GIT_STATUS=1 node scripts/with-android-env.mjs bunx expo prebuild --clean --platform android && node scripts/with-android-env.mjs bunx expo run:android",
+    "android:preview": "APP_VARIANT=preview EXPO_NO_GIT_STATUS=1 node scripts/with-android-env.mjs bunx expo prebuild --clean --platform android && node scripts/with-android-env.mjs bunx expo run:android",
+    "android:prod": "node scripts/install-android-prod.mjs",
+    "android:prod:install": "node scripts/install-android-prod.mjs",
     "eas:android:dev": "eas build --profile development -p android",
     "eas:android:preview": "eas build --profile preview -p android",
     "eas:android:preview:dev": "eas build --profile preview:dev -p android",
@@ -60,6 +61,7 @@
     "@shikijs/themes": "4.2.0",
     "@t3tools/client-runtime": "workspace:*",
     "@t3tools/contracts": "workspace:*",
+    "@t3tools/mobile-lan-discovery": "file:./modules/t3-lan-discovery",
     "@t3tools/mobile-markdown-text": "file:./modules/t3-markdown-text",
     "@t3tools/mobile-native-controls": "file:./modules/t3-native-controls",
     "@t3tools/mobile-review-diff-native": "file:./modules/t3-review-diff",
@@ -85,6 +87,7 @@
     "expo-haptics": "~56.0.3",
     "expo-image-picker": "~56.0.18",
     "expo-linking": "~56.0.14",
+    "expo-modules-core": "~56.0.17",
     "expo-network": "~56.0.5",
     "expo-notifications": "~56.0.18",
     "expo-paste-input": "^0.1.15",
@@ -129,7 +132,9 @@
     "autolinking": {
       "buildFromSource": [
         "react-native-screens",
-        "@react-native-menu/menu"
+        "@react-native-menu/menu",
+        "expo-dev-menu",
+        "expo-dev-launcher"
       ]
     }
   }

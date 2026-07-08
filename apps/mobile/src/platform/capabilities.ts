@@ -123,3 +123,7 @@ export function shouldUseNativeSelectableMarkdown(): boolean {
 export function shouldUseNitroMarkdown(): boolean {
   return platformCapabilities.markdown.useNitroMarkdown;
 }
+
+export function shouldUseNativeComposerEditor(): boolean {
+  return readTruthyPublicEnv("EXPO_PUBLIC_NATIVE_COMPOSER") && hasNativeComposerEditor();
+}

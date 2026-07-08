@@ -34,6 +34,7 @@ export function ConnectionsRouteScreen() {
     <View collapsable={false} className="flex-1 bg-sheet">
       <NativeHeaderToolbar placement="right">
         <NativeHeaderToolbar.Button
+          accessibilityLabel="Add environment"
           icon="plus"
           onPress={() => navigation.navigate("ConnectionsNew")}
           separateBackground
