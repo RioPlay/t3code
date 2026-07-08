@@ -4,11 +4,12 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Editable
+import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import androidx.appcompat.widget.AppCompatEditText
+
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
 import expo.modules.kotlin.viewevent.EventDispatcher
@@ -17,7 +18,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
-  private val editText = AppCompatEditText(context)
+  private val editText = ComposerEditText(context)
   private val onComposerChange by EventDispatcher()
   private val onComposerSelectionChange by EventDispatcher()
   private val onComposerFocus by EventDispatcher()
@@ -27,10 +28,16 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
   private val onComposerContentSizeChange by EventDispatcher()
 
   private var eventCount = 0
+  private var nativeEventCount = 0
   private var applyingControlledDocument = false
-  private var lastControlledEventCount = -1
-  private var placeholderText = ""
-  private var contentInsetVerticalPx = 0f
+  private var value = ""
+  private var tokensJson = "[]"
+  private var tokens: List<ComposerTokenPayload> = emptyList()
+  private var tokensNeedRebuild = false
+  private var requestedSelection: ComposerSelectionPayload? = null
+  private var theme = ComposerThemePayload.fromJson(JSONObject())
+  private var fontSize = 14f
+  private var fontFamily = "DMSans_400Regular"
 
   init {
     editText.layoutParams = LayoutParams(
@@ -49,7 +56,7 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
 
         override fun afterTextChanged(s: Editable?) {
           if (applyingControlledDocument) return
-          emitComposerChange()
+          emitTextChange()
         }
       },
     )
@@ -60,68 +67,79 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
         onComposerBlur(mapOf())
       }
     }
+    editText.onSelectionChanged = { _, _ ->
+      if (applyingControlledDocument) return@onSelectionChanged
+      emitSelection()
+    }
     addView(editText)
   }
 
   fun setControlledDocumentJson(documentJson: String) {
     val payload = runCatching { JSONObject(documentJson) }.getOrNull() ?: return
-    val value = payload.optString("value", "")
     val controlledEventCount = payload.optInt("mostRecentEventCount", 0)
-    if (controlledEventCount == lastControlledEventCount && editText.text?.toString() == value) {
+    if (controlledEventCount < nativeEventCount) {
       return
     }
-    lastControlledEventCount = controlledEventCount
-    applyingControlledDocument = true
-    try {
-      if (editText.text?.toString() != value) {
-        editText.setText(value)
+    if (payload.optBoolean("isNativeEcho", false)) {
+      val nextValue = payload.optString("value", "")
+      if (serializedText() != nextValue) {
+        return
       }
-      val selection = payload.optJSONObject("selection")
-      if (selection != null && !payload.optBoolean("isNativeEcho", false)) {
-        val start = selection.optInt("start", value.length)
-        val end = selection.optInt("end", start)
-        val safeStart = min(max(0, start), value.length)
-        val safeEnd = min(max(safeStart, end), value.length)
-        editText.setSelection(safeStart, safeEnd)
-      } else {
-        val cursor = min(max(0, value.length), editText.selectionStart)
-        editText.setSelection(cursor, cursor)
+    }
+    val nextValue = payload.optString("value", "")
+    val nextTokensJson = payload.optString("tokensJson", "[]")
+    if (tokensJson != nextTokensJson) {
+      tokensJson = nextTokensJson
+      tokens = parseComposerTokens(nextTokensJson)
+      tokensNeedRebuild = true
+    }
+    value = nextValue
+    requestedSelection =
+      payload.optJSONObject("selection")?.let { selection ->
+        ComposerSelectionPayload(
+          start = selection.optInt("start", nextValue.length),
+          end = selection.optInt("end", selection.optInt("start", nextValue.length)),
+        )
       }
-    } finally {
-      applyingControlledDocument = false
+    applyControlledDocument(force = tokensNeedRebuild)
+    applyRequestedSelection()
+    if (tokensMatchCurrentValue()) {
+      tokensNeedRebuild = false
     }
   }
 
   fun setThemeJson(themeJson: String) {
-    val theme = runCatching { JSONObject(themeJson) }.getOrNull() ?: return
-    val textColor = parseColor(theme.optString("text", "#000000"))
-    val placeholderColor = parseColor(theme.optString("placeholder", "#888888"))
-    editText.setTextColor(textColor)
-    editText.setHintTextColor(placeholderColor)
+    val nextTheme = runCatching { JSONObject(themeJson) }.getOrNull() ?: return
+    theme = ComposerThemePayload.fromJson(nextTheme)
+    applyTheme()
+    applyControlledDocument(force = true)
   }
 
   fun setPlaceholder(placeholder: String) {
-    placeholderText = placeholder
     editText.hint = placeholder
+    updatePlaceholderVisibility()
   }
 
   fun setFontFamily(fontFamily: String) {
     if (fontFamily.isBlank()) return
+    this.fontFamily = fontFamily
     editText.typeface = Typeface.create(fontFamily, Typeface.NORMAL)
+    applyControlledDocument(force = true)
   }
 
   fun setFontSize(fontSize: Float) {
+    this.fontSize = fontSize
     editText.textSize = fontSize
+    applyControlledDocument(force = true)
   }
 
   fun setLineHeight(lineHeight: Float) {
-    val fontSize = editText.textSize
-    if (fontSize <= 0f) return
-    editText.setLineSpacing(lineHeight - fontSize, 1f)
+    val currentFontSize = editText.textSize
+    if (currentFontSize <= 0f) return
+    editText.setLineSpacing(lineHeight - currentFontSize, 1f)
   }
 
   fun setContentInsetVertical(contentInsetVertical: Float) {
-    contentInsetVerticalPx = contentInsetVertical
     val inset = contentInsetVertical.toInt()
     editText.setPadding(editText.paddingLeft, inset, editText.paddingRight, inset)
   }
@@ -181,26 +199,126 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
   }
 
   fun setSelection(start: Int, end: Int) {
-    val length = editText.text?.length ?: 0
-    val safeStart = min(max(0, start), length)
-    val safeEnd = min(max(safeStart, end), length)
-    editText.setSelection(safeStart, safeEnd)
+    requestedSelection = ComposerSelectionPayload(start, end)
+    applyRequestedSelection()
   }
 
-  private fun emitComposerChange() {
-    eventCount += 1
-    val value = editText.text?.toString() ?: ""
-    val selection = mapOf(
-      "start" to editText.selectionStart,
-      "end" to editText.selectionEnd,
-    )
-    val payload = mapOf(
-      "value" to value,
-      "selection" to selection,
-      "eventCount" to eventCount,
-    )
+  private fun applyControlledDocument(force: Boolean = false) {
+    val currentSource = serializedText()
+    if (!force && currentSource == value && documentMatchesExpectedTokens()) {
+      updatePlaceholderVisibility()
+      return
+    }
+    val previousSelection = sourceSelection()
+    applyingControlledDocument = true
+    try {
+      val spannable =
+        ComposerDocumentBuilder.buildSpannable(
+          context = context,
+          value = value,
+          tokens = tokens,
+          theme = theme,
+          fontSize = fontSize,
+        )
+      editText.setText(spannable)
+      val targetSelection = requestedSelection ?: previousSelection
+      requestedSelection = null
+      val displayRangeStart =
+        ComposerDocumentBuilder.displayOffset(value, tokens, targetSelection.start)
+      val displayRangeEnd =
+        ComposerDocumentBuilder.displayOffset(value, tokens, targetSelection.end)
+      val length = editText.text?.length ?: 0
+      val safeStart = min(max(0, displayRangeStart), length)
+      val safeEnd = min(max(safeStart, displayRangeEnd), length)
+      editText.setSelection(safeStart, safeEnd)
+    } finally {
+      applyingControlledDocument = false
+    }
+    updatePlaceholderVisibility()
+    emitContentSizeIfNeeded()
+  }
+
+  private fun applyRequestedSelection() {
+    val selection = requestedSelection ?: return
+    val displayStart = ComposerDocumentBuilder.displayOffset(value, tokens, selection.start)
+    val displayEnd = ComposerDocumentBuilder.displayOffset(value, tokens, selection.end)
+    val length = editText.text?.length ?: 0
+    val safeStart = min(max(0, displayStart), length)
+    val safeEnd = min(max(safeStart, displayEnd), length)
+    applyingControlledDocument = true
+    try {
+      editText.setSelection(safeStart, safeEnd)
+    } finally {
+      applyingControlledDocument = false
+      requestedSelection = null
+    }
+  }
+
+  private fun applyTheme() {
+    editText.setTextColor(parseColor(theme.text))
+    editText.setHintTextColor(parseColor(theme.placeholder))
+  }
+
+  private fun emitTextChange() {
+    if (applyingControlledDocument) return
+    value = serializedText()
+    val selection = sourceSelection()
+    nativeEventCount += 1
+    eventCount = nativeEventCount
+    val payload =
+      mapOf(
+        "value" to value,
+        "selection" to mapOf("start" to selection.start, "end" to selection.end),
+        "eventCount" to nativeEventCount,
+      )
     onComposerChange(payload)
-    onComposerSelectionChange(payload)
+    updatePlaceholderVisibility()
+    emitContentSizeIfNeeded()
+  }
+
+  private fun emitSelection() {
+    val currentValue = serializedText()
+    val selection = sourceSelection()
+    onComposerSelectionChange(
+      mapOf(
+        "value" to currentValue,
+        "selection" to mapOf("start" to selection.start, "end" to selection.end),
+        "eventCount" to nativeEventCount,
+      ),
+    )
+  }
+
+  private fun serializedText(): String {
+    return ComposerDocumentBuilder.serializedText(editText.text ?: "")
+  }
+
+  private fun sourceSelection(): ComposerSelectionPayload {
+    val text = editText.text ?: ""
+    return ComposerSelectionPayload(
+      start = ComposerDocumentBuilder.sourceOffset(text, editText.selectionStart),
+      end = ComposerDocumentBuilder.sourceOffset(text, editText.selectionEnd),
+    )
+  }
+
+  private fun tokensMatchCurrentValue(): Boolean =
+    validTokens(value, tokens).size == tokens.size
+
+  private fun documentMatchesExpectedTokens(): Boolean {
+    val text = editText.text ?: return tokens.isEmpty()
+    val renderedSources =
+      text.getSpans(0, text.length, ComposerChipSpan::class.java)
+        .sortedBy { text.getSpanStart(it) }
+        .map { it.source }
+    val expectedSources =
+      validTokens(value, tokens).map { it.source }
+    return renderedSources == expectedSources
+  }
+
+  private fun updatePlaceholderVisibility() {
+    editText.alpha = if (value.isEmpty()) 1f else 1f
+  }
+
+  private fun emitContentSizeIfNeeded() {
     onComposerContentSizeChange(
       mapOf(
         "width" to width,
