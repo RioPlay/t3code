@@ -10,6 +10,10 @@ import { Platform } from "react-native";
 import type { SearchBarCommands } from "react-native-screens";
 
 import { useThemeColor } from "../../lib/useThemeColor";
+import {
+  ANDROID_HEADER_TOOLBAR_GAP,
+  resolveAndroidWorkspaceHeaderOptions,
+} from "../layout/androidWorkspaceHeader";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
 import { createNativeMailSearchToolbarItem } from "../layout/native-mail-search-toolbar";
@@ -47,6 +51,7 @@ export function HomeHeader(props: {
   const localSearchBarRef = useRef<SearchBarCommands>(null);
   const searchBarRef = props.searchBarRef ?? localSearchBarRef;
   const iconColor = useThemeColor("--color-icon");
+  const sheetColor = String(useThemeColor("--color-sheet"));
   const hasCustomListOptions = hasCustomHomeListOptions(props);
   const focusSearch = useCallback(() => {
     searchBarRef.current?.focus();
@@ -60,7 +65,8 @@ export function HomeHeader(props: {
       <NativeStackScreenOptions
         options={{
           // Static header config (glass, title, fonts) lives in Stack.tsx
-          // (GLASS_HEADER_OPTIONS). Only dynamic values are set here.
+          // (WORKSPACE_HEADER_OPTIONS). Only dynamic values are set here.
+          ...resolveAndroidWorkspaceHeaderOptions(sheetColor),
           headerTintColor: iconColor,
           unstable_headerRightItems:
             Platform.OS === "ios"
@@ -211,7 +217,7 @@ export function HomeHeader(props: {
               ))}
             </NativeHeaderToolbar.Menu>
           </NativeHeaderToolbar.Menu>
-          <NativeHeaderToolbar.Spacer width={8} sharesBackground={false} />
+          <NativeHeaderToolbar.Spacer width={ANDROID_HEADER_TOOLBAR_GAP} sharesBackground={false} />
           <NativeHeaderToolbar.SearchBarSlot />
         </NativeHeaderToolbar>
       )}

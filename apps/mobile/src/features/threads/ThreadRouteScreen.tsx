@@ -77,7 +77,10 @@ import {
   useAdaptiveWorkspacePaneRole,
   useRegisterWorkspaceInspector,
 } from "../layout/AdaptiveWorkspaceLayout";
+import { resolveAndroidWorkspaceHeaderOptions } from "../layout/androidWorkspaceHeader";
+import { buildThreadHeaderSubtitle } from "../layout/threadHeaderSubtitle";
 import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
+import { useThemeColor } from "../../lib/useThemeColor";
 import { ThreadFileNavigatorPane } from "../files/thread-file-navigator-pane";
 import {
   ThreadInspectorContentStack,
@@ -305,12 +308,13 @@ function ThreadRouteContent(
   );
 
   const usesNativeHeaderGlass = Platform.OS === "ios";
-  const headerSubtitle = [
-    selectedThreadProject?.title ?? null,
-    selectedEnvironmentConnection?.environmentLabel ?? null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const sheetColor = String(useThemeColor("--color-sheet"));
+  const headerSubtitle = buildThreadHeaderSubtitle({
+    projectTitle: selectedThreadProject?.title ?? null,
+    environmentLabel: selectedEnvironmentConnection?.environmentLabel ?? null,
+    connectionStateLabel:
+      routeConnectionState === "connected" ? null : connectionTone(routeConnectionState).label,
+  });
   /* ─── Git status for native header trigger ───────────────────────── */
   const gitStatus = useEnvironmentQuery(
     selectedThread !== null && selectedThreadCwd !== null
@@ -943,6 +947,7 @@ function ThreadRouteContent(
       {activeInspectorRenderer ? <InspectorPaneRoleActivation /> : null}
       <NativeStackScreenOptions
         options={{
+          ...resolveAndroidWorkspaceHeaderOptions(sheetColor),
           headerTitle: selectedThread.title,
           headerTitleStyle: usesNativeHeaderGlass
             ? {
@@ -970,7 +975,7 @@ function ThreadRouteContent(
             Platform.OS === "ios"
               ? () => (layout.usesSplitView ? threadCenterHeaderItems : compactRightHeaderItems)
               : undefined,
-          unstable_headerSubtitle: usesNativeHeaderGlass ? headerSubtitle : undefined,
+          unstable_headerSubtitle: headerSubtitle.length > 0 ? headerSubtitle : undefined,
         }}
       />
 
