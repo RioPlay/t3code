@@ -4,15 +4,16 @@ import { cn } from "../../lib/cn";
 import { MOBILE_CODE_SURFACE } from "../../lib/typography";
 
 import type { ReviewRenderableLineRow } from "./reviewModel";
+import { REVIEW_DIFF_LINE_HEIGHT } from "./reviewListLayout";
 import type { ReviewHighlightedToken } from "./shikiReviewHighlighter";
+
+export { REVIEW_DIFF_LINE_HEIGHT } from "./reviewListLayout";
 
 export const REVIEW_MONO_FONT_FAMILY = Platform.select({
   ios: "ui-monospace",
   android: "monospace",
   default: "monospace",
 });
-
-export const REVIEW_DIFF_LINE_HEIGHT = MOBILE_CODE_SURFACE.rowHeight;
 
 export function renderVisibleWhitespace(value: string): string {
   const expandedTabs = value.replace(/\t/g, "    ");
