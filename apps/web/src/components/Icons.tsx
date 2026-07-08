@@ -647,6 +647,14 @@ export const AntigravityIcon: Icon = (props) => (
   </svg>
 );
 
+export const LmStudioIcon: Icon = ({ className, ...props }) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" className={cn("stroke-current", className)}>
+    <rect x="3" y="4" width="18" height="16" rx="2" strokeWidth="1.75" />
+    <path d="M8 9h8M8 12.5h5" strokeWidth="1.75" strokeLinecap="round" />
+    <circle cx="17" cy="12.5" r="1.25" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 export const OpenCodeIcon: Icon = (props) => (
   <svg {...props} viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <g clipPath="url(#opencode__clip0_1311_94969)">

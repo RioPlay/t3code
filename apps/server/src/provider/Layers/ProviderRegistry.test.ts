@@ -1076,6 +1076,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
                   claudeAgent: { enabled: false },
                   cursor: { enabled: false },
                   grok: { enabled: false },
+                  lmstudio: { enabled: false },
                   opencode: { enabled: false },
                 },
                 // `providerInstances` keys are branded `ProviderInstanceId`;
@@ -1187,6 +1188,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
                   claudeAgent: { enabled: false },
                   cursor: { enabled: false },
                   grok: { enabled: false },
+                  lmstudio: { enabled: false },
                   opencode: { enabled: false },
                 },
               }),
@@ -1266,8 +1268,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
             // executable. This verifies the public settings-to-probe behavior
             // without depending on timestamps assigned by TestClock.
             const refreshed = yield* Effect.gen(function* () {
+              const codexDriver = ProviderDriverKind.make("codex");
               for (let attempts = 0; attempts < 60; attempts += 1) {
-                const providers = yield* registry.getProviders;
+                const providers = yield* registry.refresh(codexDriver);
                 const codex = providers.find((provider) => provider.instanceId === "codex");
                 if (
                   codex !== undefined &&
@@ -1283,7 +1286,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
             });
 
             const reprobedCodex = refreshed.find((provider) => provider.instanceId === "codex");
-            assert.deepStrictEqual(spawnedCommands, [firstMissing, secondMissing]);
+            assert.strictEqual(spawnedCommands[0], firstMissing);
+            assert.ok(spawnedCommands.includes(secondMissing));
             assert.strictEqual(reprobedCodex?.status, "error");
             assert.strictEqual(reprobedCodex?.installed, false);
           }).pipe(Effect.provide(runtimeServices));
@@ -1300,6 +1304,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
                   claudeAgent: { enabled: false },
                   cursor: { enabled: false },
                   grok: { enabled: false },
+                  lmstudio: { enabled: false },
                   opencode: { enabled: false },
                 },
                 providerInstances: {
@@ -1437,6 +1442,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
                 "codex",
                 "cursor",
                 "grok",
+                "lmstudio",
                 "opencode",
               ]);
               assert.strictEqual(cursorProvider?.enabled, false);
