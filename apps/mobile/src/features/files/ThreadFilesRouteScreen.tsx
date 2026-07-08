@@ -35,6 +35,7 @@ import {
   useAdaptiveWorkspacePaneRole,
   useRegisterWorkspaceInspector,
 } from "../layout/AdaptiveWorkspaceLayout";
+import { createAndroidStackedSearchBarOptions } from "../layout/androidMailSearchToolbar";
 import { createNativeMailSearchToolbarItem } from "../layout/native-mail-search-toolbar";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
 import { ReviewHighlighterProvider } from "../review/ReviewHighlighterProvider";
@@ -388,18 +389,27 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
             : undefined,
           headerSearchBarOptions: usesCompactMailToolbar
             ? undefined
-            : {
-                allowToolbarIntegration: true,
-                autoCapitalize: "none",
-                hideNavigationBar: false,
-                placeholder: "Search files",
-                onChangeText: (event) => {
-                  setSearchQuery(event.nativeEvent.text);
+            : Platform.OS === "android"
+              ? createAndroidStackedSearchBarOptions({
+                  autoCapitalize: "none",
+                  placeholder: "Search files",
+                  onChangeText: setSearchQuery,
+                  onClear: () => {
+                    setSearchQuery("");
+                  },
+                })
+              : {
+                  allowToolbarIntegration: true,
+                  autoCapitalize: "none",
+                  hideNavigationBar: false,
+                  placeholder: "Search files",
+                  onChangeText: (event) => {
+                    setSearchQuery(event.nativeEvent.text);
+                  },
+                  onCancelButtonPress: () => {
+                    setSearchQuery("");
+                  },
                 },
-                onCancelButtonPress: () => {
-                  setSearchQuery("");
-                },
-              },
         }}
       />
       {layout.usesSplitView ? (

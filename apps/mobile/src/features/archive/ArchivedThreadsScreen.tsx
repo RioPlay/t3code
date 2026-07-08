@@ -26,6 +26,7 @@ import { ProjectFavicon } from "../../components/ProjectFavicon";
 import { relativeTime } from "../../lib/time";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { ThreadSwipeable } from "../home/thread-swipe-actions";
+import { createAndroidStackedSearchBarOptions } from "../layout/androidMailSearchToolbar";
 import { createNativeMailSearchToolbarItem } from "../layout/native-mail-search-toolbar";
 import type { ArchivedThreadGroup, ArchivedThreadSortOrder } from "./archivedThreadList";
 
@@ -146,26 +147,29 @@ function ArchivedThreadsHeader(props: {
             : undefined,
           headerSearchBarOptions: usesCompactMailToolbar
             ? undefined
-            : {
-                ...(Platform.OS === "ios"
-                  ? {
-                      allowToolbarIntegration: true,
-                      placement: "integratedButton" as const,
-                    }
-                  : {
-                      placement: "stacked" as const,
-                    }),
-                autoCapitalize: "none",
-                hideNavigationBar: false,
-                obscureBackground: false,
-                placeholder: "Search archived threads",
-                onChangeText: (event) => {
-                  props.onSearchQueryChange(event.nativeEvent.text);
+            : Platform.OS === "android"
+              ? createAndroidStackedSearchBarOptions({
+                  autoCapitalize: "none",
+                  placeholder: "Search archived threads",
+                  onChangeText: props.onSearchQueryChange,
+                  onClear: () => {
+                    props.onSearchQueryChange("");
+                  },
+                })
+              : {
+                  allowToolbarIntegration: true,
+                  placement: "integratedButton" as const,
+                  autoCapitalize: "none",
+                  hideNavigationBar: false,
+                  obscureBackground: false,
+                  placeholder: "Search archived threads",
+                  onChangeText: (event) => {
+                    props.onSearchQueryChange(event.nativeEvent.text);
+                  },
+                  onCancelButtonPress: () => {
+                    props.onSearchQueryChange("");
+                  },
                 },
-                onCancelButtonPress: () => {
-                  props.onSearchQueryChange("");
-                },
-              },
         }}
       />
 

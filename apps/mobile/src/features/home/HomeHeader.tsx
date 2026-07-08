@@ -10,6 +10,7 @@ import { Platform } from "react-native";
 import type { SearchBarCommands } from "react-native-screens";
 
 import { useThemeColor } from "../../lib/useThemeColor";
+import { createAndroidStackedSearchBarOptions } from "../layout/androidMailSearchToolbar";
 import {
   ANDROID_HEADER_TOOLBAR_GAP,
   resolveAndroidWorkspaceHeaderOptions,
@@ -102,18 +103,14 @@ export function HomeHeader(props: {
           headerSearchBarOptions:
             Platform.OS === "ios"
               ? undefined
-              : {
+              : createAndroidStackedSearchBarOptions({
                   ref: searchBarRef,
-                  allowToolbarIntegration: true,
-                  hideNavigationBar: false,
                   placeholder: "Search",
-                  onCancelButtonPress: () => {
+                  onChangeText: props.onSearchQueryChange,
+                  onClear: () => {
                     props.onSearchQueryChange("");
                   },
-                  onChangeText: (event) => {
-                    props.onSearchQueryChange(event.nativeEvent.text);
-                  },
-                },
+                }),
         }}
       />
 

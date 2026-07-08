@@ -46,6 +46,10 @@ import { shouldShowWorkspaceConnectionStatus } from "../home/workspace-connectio
 import { SidebarHeaderActions } from "./sidebar-header-actions";
 import { SidebarFilterButton } from "./sidebar-filter-button";
 import { createSidebarHeaderItems } from "./sidebar-native-header-items";
+import {
+  createAndroidStackedSearchBarOptions,
+  resolveAndroidSidebarSearchFieldStyle,
+} from "../layout/androidMailSearchToolbar";
 import { SidebarNavigationShell } from "./sidebar-navigation-shell";
 import {
   PendingTaskListRow,
@@ -276,8 +280,20 @@ function ThreadNavigationSidebarPane(
   const foregroundColor = useThemeColor("--color-foreground");
   const mutedColor = useThemeColor("--color-foreground-muted");
   const placeholderColor = useThemeColor("--color-placeholder");
+  const subtleBackground = useThemeColor("--color-subtle");
   const searchBackgroundColor =
-    colorScheme === "dark" ? IOS_SEARCH_FILL_DARK : IOS_SEARCH_FILL_LIGHT;
+    Platform.OS === "android"
+      ? String(subtleBackground)
+      : colorScheme === "dark"
+        ? IOS_SEARCH_FILL_DARK
+        : IOS_SEARCH_FILL_LIGHT;
+  const androidSearchFieldStyle =
+    Platform.OS === "android"
+      ? resolveAndroidSidebarSearchFieldStyle({
+          subtleBackground: String(subtleBackground),
+          borderColor: String(borderColor),
+        })
+      : null;
   const headerFadeColor = String(backgroundColor);
   const headerWashOpacity = SIDEBAR_HEADER_WASH_OPACITY[colorScheme];
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null);
@@ -485,23 +501,14 @@ function ThreadNavigationSidebarPane(
       <>
         <NativeStackScreenOptions
           options={{
-            headerSearchBarOptions: {
+            headerSearchBarOptions: createAndroidStackedSearchBarOptions({
               ref: searchBarRef,
-              autoCapitalize: "none",
-              hideNavigationBar: false,
-              // Keep the search bar pinned under the title — UIKit's default
-              // hidesSearchBarWhenScrolling collapses it on scroll.
-              hideWhenScrolling: false,
-              obscureBackground: false,
               placeholder: "Search",
-              placement: "stacked",
-              onCancelButtonPress: () => {
+              onChangeText: props.onSearchQueryChange,
+              onClear: () => {
                 props.onSearchQueryChange("");
               },
-              onChangeText: (event) => {
-                props.onSearchQueryChange(event.nativeEvent.text);
-              },
-            },
+            }),
             unstable_headerRightItems: () => nativeHeaderItems,
           }}
         />
@@ -666,7 +673,7 @@ function ThreadNavigationSidebarPane(
         <View
           style={[
             styles.searchField,
-            {
+            androidSearchFieldStyle ?? {
               backgroundColor: searchBackgroundColor,
             },
           ]}
@@ -683,7 +690,11 @@ function ThreadNavigationSidebarPane(
             placeholderTextColor={placeholderColor}
             returnKeyType="search"
             className="text-base"
-            style={[styles.searchInput, { color: foregroundColor }]}
+            style={[
+              styles.searchInput,
+              { color: foregroundColor },
+              Platform.OS === "android" ? styles.searchInputAndroid : null,
+            ]}
             value={props.searchQuery}
           />
         </View>
@@ -759,6 +770,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingHorizontal: 0,
     fontFamily: "DMSans_400Regular",
+  },
+  searchInputAndroid: {
+    includeFontPadding: false,
   },
   threadList: {
     flex: 1,
