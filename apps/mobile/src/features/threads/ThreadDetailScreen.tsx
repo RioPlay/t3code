@@ -27,8 +27,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Alert, Platform, View, type GestureResponderEvent } from "react-native";
-import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";
+import {
+  Alert,
+  Platform,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+} from "react-native";
+import {
+  KeyboardController,
+  KeyboardStickyView,
+  useKeyboardState,
+} from "react-native-keyboard-controller";
 import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,11 +57,13 @@ import type {
 import { MemoAgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { PendingApprovalCard } from "./PendingApprovalCard";
 import { PendingUserInputCard } from "./PendingUserInputCard";
+import { ThreadComposer } from "./ThreadComposer";
 import {
-  COMPOSER_COLLAPSED_CHROME,
-  COMPOSER_EXPANDED_CHROME,
-  ThreadComposer,
-} from "./ThreadComposer";
+  estimateThreadComposerOverlayHeight,
+  minimumThreadComposerContentInsetEnd,
+  resolveThreadComposerContentInsetEnd,
+  threadComposerOverlayHeightAdjustment,
+} from "./threadComposerOverlayInset";
 import { ThreadFeed } from "./ThreadFeed";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 
@@ -189,7 +201,7 @@ function useStreamingHaptics(threadId: ThreadId, feed: ReadonlyArray<ThreadFeedE
 // Pre-measurement estimate for the working pill's slot (the real height is
 // measured via onComposerLayout since the pill lives inside the composer
 // overlay). Matches the rendered pill: pt-2 + pb-2 (16) wrapping a bordered
-// px-3/py-2 row (~36), so ~52 — keep it in sync with WorkingDurationPill.
+// px-3/py-2 row (~36), so ~52 — keep in sync with THREAD_WORKING_INDICATOR_CHROME.
 const WORKING_INDICATOR_HEIGHT = 52;
 
 const WorkingDurationPill = memo(function WorkingDurationPill(props: {
@@ -241,6 +253,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const lastScrolledAnchorMessageIdRef = useRef<MessageId | null>(null);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const [anchorMessageId, setAnchorMessageId] = useState<MessageId | null>(null);
+  const isKeyboardVisible = useKeyboardState((state) => state.isVisible);
   const footerChromeInset = props.footerChromeInset ?? 0;
   const composerBottomInset =
     footerChromeInset > 0 ? 0 : composerExpanded ? 0 : Math.max(insets.bottom, 12);
@@ -262,11 +275,12 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     }
   })();
   const selectedThreadFeed = props.selectedThreadFeed;
-  const composerChrome = composerExpanded ? COMPOSER_EXPANDED_CHROME : COMPOSER_COLLAPSED_CHROME;
-  const composerOverlapHeight = composerChrome + composerBottomInset;
-  const activeWorkIndicatorHeight = props.activeWorkStartedAt ? WORKING_INDICATOR_HEIGHT : 0;
-  const estimatedOverlayHeight =
-    composerOverlapHeight + activeWorkIndicatorHeight + footerChromeInset;
+  const estimatedOverlayHeight = estimateThreadComposerOverlayHeight({
+    expanded: composerExpanded,
+    attachmentCount: props.draftAttachments.length,
+    hasActiveWorkIndicator: props.activeWorkStartedAt !== null,
+    footerChromeInset,
+  });
   // The overlay's measured height includes the home-indicator inset (the
   // composer pads it), but contentInsetAdjustmentBehavior="automatic" makes
   // UIKit add the safe-area bottom to the content inset AGAIN — leaving a
@@ -276,12 +290,51 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   // its end-scroll math matches the real resting position.
   const nativeInsetOvercount =
     props.usesAutomaticContentInsets === true && Platform.OS === "ios" ? insets.bottom : 0;
-  const { contentInsetEndAdjustment, onComposerLayout } = useKeyboardChatComposerInset(
+  const overlayInsetAdjustment = useMemo(
+    () => ({
+      footerChromeInset,
+      nativeInsetOvercount,
+    }),
+    [footerChromeInset, nativeInsetOvercount],
+  );
+  const minimumComposerContentInsetEnd = minimumThreadComposerContentInsetEnd(
+    estimatedOverlayHeight,
+    nativeInsetOvercount,
+  );
+  const composerOverlayHeightAdjustment =
+    threadComposerOverlayHeightAdjustment(overlayInsetAdjustment);
+  const { contentInsetEndAdjustment } = useKeyboardChatComposerInset(
     listRef,
     composerOverlayRef,
-    Math.max(0, estimatedOverlayHeight - nativeInsetOvercount),
-    -nativeInsetOvercount,
+    minimumComposerContentInsetEnd,
+    composerOverlayHeightAdjustment,
   );
+  const reportComposerContentInsetEnd = useCallback(
+    (nextInset: number) => {
+      if (!Number.isFinite(nextInset) || nextInset === contentInsetEndAdjustment.value) {
+        return;
+      }
+      contentInsetEndAdjustment.value = nextInset;
+      listRef.current?.reportContentInset({ bottom: nextInset });
+    },
+    [contentInsetEndAdjustment, listRef],
+  );
+  const onComposerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const resolvedInset = resolveThreadComposerContentInsetEnd({
+        measuredComposerHeight: event.nativeEvent.layout.height,
+        estimatedOverlayHeight,
+        adjustment: overlayInsetAdjustment,
+      });
+      reportComposerContentInsetEnd(resolvedInset);
+    },
+    [estimatedOverlayHeight, overlayInsetAdjustment, reportComposerContentInsetEnd],
+  );
+  useLayoutEffect(() => {
+    if (contentInsetEndAdjustment.value < minimumComposerContentInsetEnd) {
+      reportComposerContentInsetEnd(minimumComposerContentInsetEnd);
+    }
+  }, [contentInsetEndAdjustment, minimumComposerContentInsetEnd, reportComposerContentInsetEnd]);
   const { freeze, scrollMessageToEnd } = useKeyboardScrollToEnd({ listRef });
   const showContent = props.showContent ?? true;
   const layoutVariant = props.layoutVariant ?? "compact";
@@ -366,6 +419,9 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     }
 
     setAnchorMessageId(messageId);
+    // Dismiss before blur: image-picker returns on Android can leave a stale
+    // keyboard height in KeyboardStickyView while the soft keyboard is hidden.
+    await KeyboardController.dismiss();
     composerEditorRef.current?.blur();
     return messageId;
   }, [props.onSendMessage, selectedThreadKey]);
@@ -482,6 +538,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
       ) : null}
       {showContent ? (
         <KeyboardStickyView
+          enabled={isKeyboardVisible}
           style={{ position: "absolute", bottom: footerChromeInset, left: 0, right: 0 }}
           offset={{ closed: 0, opened: 0 }}
         >
@@ -550,6 +607,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
               onStopThread={props.onStopThread}
               onSendMessage={handleSendMessage}
               onReconnectEnvironment={props.onReconnectEnvironment}
+              onManageEnvironments={props.onOpenConnectionEditor}
               onUpdateModelSelection={props.onUpdateThreadModelSelection}
               onUpdateRuntimeMode={props.onUpdateThreadRuntimeMode}
               onUpdateInteractionMode={props.onUpdateThreadInteractionMode}

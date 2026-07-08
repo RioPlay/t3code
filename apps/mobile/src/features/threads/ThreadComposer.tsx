@@ -67,17 +67,11 @@ import {
 import { useComposerPathSearch } from "../../state/use-composer-path-search";
 import { ComposerCommandPopover, type ComposerCommandItem } from "./ComposerCommandPopover";
 
-/**
- * Height of the collapsed composer (pill + vertical padding, excluding safe-area inset).
- * Exported so the parent can compute feed overlap / content insets.
- */
-export const COMPOSER_COLLAPSED_CHROME = 60;
-
-/**
- * Height of the expanded composer (card + toolbar + vertical padding, excluding safe-area inset).
- * Used by the parent to compute the larger feed bottom inset when the composer is focused.
- */
-export const COMPOSER_EXPANDED_CHROME = 174;
+export {
+  COMPOSER_ATTACHMENT_STRIP_CHROME,
+  COMPOSER_COLLAPSED_CHROME,
+  COMPOSER_EXPANDED_CHROME,
+} from "./threadComposerOverlayInset";
 
 export interface ThreadComposerProps {
   readonly draftMessage: string;
