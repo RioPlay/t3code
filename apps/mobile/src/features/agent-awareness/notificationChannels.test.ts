@@ -50,6 +50,29 @@ describe("ensureAgentNotificationChannels", () => {
     ]);
   });
 
+  it("uses system default sound for audible channels and disables sound for low-importance", async () => {
+    await ensureAgentNotificationChannels();
+
+    const channelOptions = Object.fromEntries(
+      vi
+        .mocked(Notifications.setNotificationChannelAsync)
+        .mock.calls.map(([id, options]) => [id, options]),
+    );
+
+    for (const id of [
+      AGENT_NOTIFICATION_CHANNEL_IDS.approval,
+      AGENT_NOTIFICATION_CHANNEL_IDS.input,
+      AGENT_NOTIFICATION_CHANNEL_IDS.failed,
+      AGENT_NOTIFICATION_CHANNEL_IDS.completed,
+    ]) {
+      expect(channelOptions[id]).not.toHaveProperty("sound");
+    }
+
+    expect(channelOptions[AGENT_NOTIFICATION_CHANNEL_IDS.running]).toEqual(
+      expect.objectContaining({ sound: null }),
+    );
+  });
+
   it("skips channel registration on non-Android platforms", async () => {
     platformState.OS = "ios";
     await ensureAgentNotificationChannels();

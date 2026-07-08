@@ -128,6 +128,13 @@ export async function loadSavedConnections(): Promise<ReadonlyArray<SavedRemoteC
   );
 }
 
+export async function replaceSavedConnections(
+  connections: ReadonlyArray<SavedRemoteConnection>,
+): Promise<void> {
+  const next = pipe(connections, Arr.map(toStableSavedRemoteConnection));
+  await writeJsonStorageItem(CONNECTIONS_KEY, { connections: next });
+}
+
 export async function saveConnection(connection: SavedRemoteConnection): Promise<void> {
   const current = await loadSavedConnections();
   const stableConnection = toStableSavedRemoteConnection(connection);

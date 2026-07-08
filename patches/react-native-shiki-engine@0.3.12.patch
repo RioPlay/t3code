@@ -1,0 +1,24 @@
+diff --git a/android/CMakeLists.txt b/android/CMakeLists.txt
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
+--- a/android/CMakeLists.txt
++++ b/android/CMakeLists.txt
+@@ -3,12 +3,13 @@ project(ReactNativeShikiEngine)
+ 
+ set(CMAKE_VERBOSE_MAKEFILE ON)
+ 
+-# Find prebuilt oniguruma library
++# Use the vendored per-ABI oniguruma shared library. find_library() can pick up the
++# host /usr/lib/libonig.so when cross-compiling arm64 on x86_64 Linux hosts.
+ find_library(LOG_LIB log)
+-find_library(ONIG_LIB onig
+-    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}
+-    NO_CMAKE_FIND_ROOT_PATH
+-    REQUIRED
+-)
++set(ONIG_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libonig.so")
++if(NOT EXISTS "${ONIG_LIB}")
++    message(FATAL_ERROR "Missing oniguruma prebuilt for ${ANDROID_ABI}: ${ONIG_LIB}")
++endif()
+ 
+ # Main library
+ add_library(react-native-shiki-engine SHARED
