@@ -352,15 +352,15 @@ export function HomeScreen(props: HomeScreenProps) {
   const emptyStateAction = deriveWorkspaceEmptyStateAction(props.catalogState);
   const usesAndroidBottomBar = Platform.OS === "android";
   const bottomBarInset = usesAndroidBottomBar ? homeBottomBarInsetHeight(insets.bottom) : 0;
-  const connectionStatus =
-    shouldShowConnectionStatus && Platform.OS !== "ios" ? (
-      <View
-        className="absolute left-0 right-0 items-center"
-        style={{ bottom: bottomBarInset + Math.max(insets.bottom, 18) + 12 }}
-      >
-        <WorkspaceConnectionStatus state={props.catalogState} onPress={props.onOpenEnvironments} />
-      </View>
-    ) : null;
+  const connectionStatusBanner = shouldShowConnectionStatus ? (
+    <View className={Platform.OS === "android" ? "px-3" : undefined} style={{ paddingBottom: 16 }}>
+      <WorkspaceConnectionStatus
+        state={props.catalogState}
+        onPress={props.onOpenEnvironments}
+        variant="sidebar"
+      />
+    </View>
+  ) : null;
   const bottomBar = usesAndroidBottomBar ? (
     <View className="absolute bottom-0 left-0 right-0">
       <HomeBottomBar
@@ -422,7 +422,7 @@ export function HomeScreen(props: HomeScreenProps) {
             </Pressable>
           ) : null}
         </View>
-        {connectionStatus}
+        {connectionStatusBanner}
         {bottomBar}
       </View>
     );
@@ -432,16 +432,7 @@ export function HomeScreen(props: HomeScreenProps) {
     <>
       <BuildVariantBanner />
       {Platform.OS === "ios" ? null : <HomeTopContentSpacer topInset={insets.top} />}
-
-      {shouldShowConnectionStatus && Platform.OS === "ios" ? (
-        <View style={{ paddingBottom: 16 }}>
-          <WorkspaceConnectionStatus
-            state={props.catalogState}
-            onPress={props.onOpenEnvironments}
-            variant="sidebar"
-          />
-        </View>
-      ) : null}
+      {connectionStatusBanner}
     </>
   );
 
@@ -502,7 +493,6 @@ export function HomeScreen(props: HomeScreenProps) {
           }
         />
       </SwipeableScrollGateProvider>
-      {connectionStatus}
       {bottomBar}
     </View>
   );

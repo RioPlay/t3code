@@ -66,6 +66,17 @@ type AppScreenOptions = NativeStackNavigationOptions & {
 // Shared header presets. Screens only override genuinely dynamic values (titles,
 // subtitles, toolbar items, search callbacks) via NativeStackScreenOptions.
 //
+// ANDROID_WORKSPACE: opaque Material header for Home/Thread — no glass sampling.
+const ANDROID_WORKSPACE_HEADER_OPTIONS: AppScreenOptions = {
+  headerBackButtonDisplayMode: "minimal",
+  headerBackTitle: "",
+  headerLargeTitle: false,
+  headerShadowVisible: true,
+  headerShown: true,
+  headerTitleStyle: { fontSize: 18, fontWeight: "800" },
+  headerTransparent: false,
+};
+
 // GLASS: transparent header over the screen's primary scroll view, with the iOS 26
 // scroll-edge blur sampling the content (Home, Thread, Files tree, settings sheet).
 const GLASS_HEADER_OPTIONS: AppScreenOptions = {
@@ -105,6 +116,9 @@ const SHEET_SOLID_HEADER_OPTIONS: AppScreenOptions = {
   ...SOLID_HEADER_OPTIONS,
   unstable_navigationItemStyle: undefined,
 };
+
+const WORKSPACE_HEADER_OPTIONS: AppScreenOptions =
+  Platform.OS === "ios" ? GLASS_HEADER_OPTIONS : ANDROID_WORKSPACE_HEADER_OPTIONS;
 
 const SettingsSheetStack = createNativeStackNavigator({
   initialRouteName: "Settings",
@@ -323,8 +337,8 @@ export const RootStack = createNativeStackNavigator({
       screen: HomeRouteScreen,
       linking: "",
       options: {
-        ...GLASS_HEADER_OPTIONS,
-        contentStyle: { backgroundColor: "transparent" },
+        ...WORKSPACE_HEADER_OPTIONS,
+        contentStyle: Platform.OS === "ios" ? { backgroundColor: "transparent" } : undefined,
         headerBackVisible: false,
         title: "Threads",
       },
@@ -332,7 +346,7 @@ export const RootStack = createNativeStackNavigator({
     Thread: createNativeStackScreen({
       screen: ThreadRouteScreen,
       linking: THREAD_LINKING_PREFIX,
-      options: GLASS_HEADER_OPTIONS,
+      options: WORKSPACE_HEADER_OPTIONS,
     }),
     ThreadTerminal: createNativeStackScreen({
       screen: ThreadTerminalRouteScreen,
