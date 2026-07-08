@@ -1,0 +1,952 @@
+[
+  {
+    "command": {
+      "runFlowCommand": {
+        "commands": [
+          {
+            "applyConfigurationCommand": {
+              "config": {
+                "appId": "${APP_ID}"
+              },
+              "optional": false
+            }
+          },
+          {
+            "launchAppCommand": {
+              "appId": "${APP_ID}",
+              "optional": false
+            }
+          },
+          {
+            "assertConditionCommand": {
+              "condition": {
+                "visible": {
+                  "idRegex": "home-screen",
+                  "optional": false
+                }
+              },
+              "timeout": "30000",
+              "optional": false
+            }
+          },
+          {
+            "assertConditionCommand": {
+              "condition": {
+                "visible": {
+                  "idRegex": "home-screen",
+                  "optional": false
+                }
+              },
+              "optional": false
+            }
+          }
+        ],
+        "sourceDescription": "../fixtures/auth-bypass.yaml",
+        "config": {
+          "appId": "${APP_ID}"
+        },
+        "optional": false
+      }
+    },
+    "metadata": {
+      "status": "FAILED",
+      "timestamp": 1783522986022,
+      "duration": 1061,
+      "error": {
+        "message": "Unable to launch app undefined",
+        "cause": {
+          "stackTrace": [
+            {
+              "classLoaderName": "app",
+              "methodName": "launchApp$lambda$8",
+              "fileName": "AndroidDriver.kt",
+              "lineNumber": 222,
+              "className": "maestro.drivers.AndroidDriver",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "measured",
+              "fileName": "Metrics.kt",
+              "lineNumber": 48,
+              "className": "maestro.utils.Metrics",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "launchApp",
+              "fileName": "AndroidDriver.kt",
+              "lineNumber": 217,
+              "className": "maestro.drivers.AndroidDriver",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "launchApp$lambda$2",
+              "fileName": "Maestro.kt",
+              "lineNumber": 75,
+              "className": "maestro.Maestro",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "runInterruptibleInExpectedContext",
+              "fileName": "Interruptible.kt",
+              "lineNumber": 48,
+              "className": "kotlinx.coroutines.InterruptibleKt",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "access$runInterruptibleInExpectedContext",
+              "fileName": "Interruptible.kt",
+              "lineNumber": 1,
+              "className": "kotlinx.coroutines.InterruptibleKt",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "invokeSuspend",
+              "fileName": "Interruptible.kt",
+              "lineNumber": 40,
+              "className": "kotlinx.coroutines.InterruptibleKt$runInterruptible$2",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "resumeWith",
+              "fileName": "ContinuationImpl.kt",
+              "lineNumber": 34,
+              "className": "kotlin.coroutines.jvm.internal.BaseContinuationImpl",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "DispatchedTask.kt",
+              "lineNumber": 100,
+              "className": "kotlinx.coroutines.DispatchedTask",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "LimitedDispatcher.kt",
+              "lineNumber": 124,
+              "className": "kotlinx.coroutines.internal.LimitedDispatcher$Worker",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "Tasks.kt",
+              "lineNumber": 89,
+              "className": "kotlinx.coroutines.scheduling.TaskImpl",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "runSafely",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 586,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "executeTask",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 820,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "runWorker",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 717,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 704,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+              "nativeMethod": false
+            }
+          ],
+          "message": "Package undefined is not installed",
+          "localizedMessage": "Package undefined is not installed"
+        },
+        "stackTrace": [
+          {
+            "classLoaderName": "app",
+            "methodName": "launchAppCommand",
+            "fileName": "Orchestra.kt",
+            "lineNumber": 1146,
+            "className": "maestro.orchestra.Orchestra",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "access$launchAppCommand",
+            "fileName": "Orchestra.kt",
+            "lineNumber": 123,
+            "className": "maestro.orchestra.Orchestra",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "invokeSuspend",
+            "fileName": "Orchestra.kt",
+            "lineNumber": -1,
+            "className": "maestro.orchestra.Orchestra$launchAppCommand$1",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "resumeWith",
+            "fileName": "ContinuationImpl.kt",
+            "lineNumber": 34,
+            "className": "kotlin.coroutines.jvm.internal.BaseContinuationImpl",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "DispatchedTask.kt",
+            "lineNumber": 98,
+            "className": "kotlinx.coroutines.DispatchedTask",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "processNextEvent",
+            "fileName": "EventLoop.common.kt",
+            "lineNumber": 263,
+            "className": "kotlinx.coroutines.EventLoopImplBase",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "joinBlocking",
+            "fileName": "Builders.kt",
+            "lineNumber": 94,
+            "className": "kotlinx.coroutines.BlockingCoroutine",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking",
+            "fileName": "Builders.kt",
+            "lineNumber": 70,
+            "className": "kotlinx.coroutines.BuildersKt__BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking",
+            "lineNumber": 1,
+            "className": "kotlinx.coroutines.BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking$default",
+            "fileName": "Builders.kt",
+            "lineNumber": 48,
+            "className": "kotlinx.coroutines.BuildersKt__BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking$default",
+            "lineNumber": 1,
+            "className": "kotlinx.coroutines.BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSingle$lambda$0",
+            "fileName": "TestRunner.kt",
+            "lineNumber": 74,
+            "className": "maestro.cli.runner.TestRunner",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runCatching-ta8aW1Q",
+            "fileName": "TestRunner.kt",
+            "lineNumber": 203,
+            "className": "maestro.cli.runner.TestRunner",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSingle",
+            "fileName": "TestRunner.kt",
+            "lineNumber": 65,
+            "className": "maestro.cli.runner.TestRunner",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSingleFlow",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 571,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runShardSuite$lambda$10",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 532,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "newSession",
+            "fileName": "MaestroSessionManager.kt",
+            "lineNumber": 136,
+            "className": "maestro.cli.session.MaestroSessionManager",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "newSession$default",
+            "fileName": "MaestroSessionManager.kt",
+            "lineNumber": 67,
+            "className": "maestro.cli.session.MaestroSessionManager",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runShardSuite",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 479,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "access$runShardSuite",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 81,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "invokeSuspend",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 438,
+            "className": "maestro.cli.command.TestCommand$handleSessions$1$results$1$1",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "resumeWith",
+            "fileName": "ContinuationImpl.kt",
+            "lineNumber": 34,
+            "className": "kotlin.coroutines.jvm.internal.BaseContinuationImpl",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "DispatchedTask.kt",
+            "lineNumber": 100,
+            "className": "kotlinx.coroutines.DispatchedTask",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "LimitedDispatcher.kt",
+            "lineNumber": 124,
+            "className": "kotlinx.coroutines.internal.LimitedDispatcher$Worker",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "Tasks.kt",
+            "lineNumber": 89,
+            "className": "kotlinx.coroutines.scheduling.TaskImpl",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSafely",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 586,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "executeTask",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 820,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runWorker",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 717,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 704,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+            "nativeMethod": false
+          }
+        ],
+        "localizedMessage": "Unable to launch app undefined"
+      },
+      "sequenceNumber": 3,
+      "evaluatedCommand": {
+        "runFlowCommand": {
+          "commands": [
+            {
+              "applyConfigurationCommand": {
+                "config": {
+                  "appId": "${APP_ID}"
+                },
+                "optional": false
+              }
+            },
+            {
+              "launchAppCommand": {
+                "appId": "${APP_ID}",
+                "optional": false
+              }
+            },
+            {
+              "assertConditionCommand": {
+                "condition": {
+                  "visible": {
+                    "idRegex": "home-screen",
+                    "optional": false
+                  }
+                },
+                "timeout": "30000",
+                "optional": false
+              }
+            },
+            {
+              "assertConditionCommand": {
+                "condition": {
+                  "visible": {
+                    "idRegex": "home-screen",
+                    "optional": false
+                  }
+                },
+                "optional": false
+              }
+            }
+          ],
+          "sourceDescription": "../fixtures/auth-bypass.yaml",
+          "config": {
+            "appId": "undefined"
+          },
+          "optional": false
+        }
+      }
+    }
+  },
+  {
+    "command": {
+      "applyConfigurationCommand": {
+        "config": {
+          "appId": "${APP_ID}"
+        },
+        "optional": false
+      }
+    },
+    "metadata": {
+      "status": "COMPLETED",
+      "timestamp": 1783522986029,
+      "duration": 2,
+      "sequenceNumber": 4,
+      "evaluatedCommand": {
+        "applyConfigurationCommand": {
+          "config": {
+            "appId": "undefined"
+          },
+          "optional": false
+        }
+      }
+    }
+  },
+  {
+    "command": {
+      "defineVariablesCommand": {
+        "env": {
+          "MAESTRO_FILENAME": "screenshot-tour-phone",
+          "MAESTRO_DEVICE_UDID": "37260DLJG001P3",
+          "MAESTRO_SHARD_ID": "1",
+          "MAESTRO_SHARD_INDEX": "0"
+        },
+        "optional": false
+      }
+    },
+    "metadata": {
+      "status": "COMPLETED",
+      "timestamp": 1783522985249,
+      "duration": 6,
+      "sequenceNumber": 0,
+      "evaluatedCommand": {
+        "defineVariablesCommand": {
+          "env": {
+            "MAESTRO_FILENAME": "screenshot-tour-phone",
+            "MAESTRO_DEVICE_UDID": "37260DLJG001P3",
+            "MAESTRO_SHARD_ID": "1",
+            "MAESTRO_SHARD_INDEX": "0"
+          },
+          "optional": false
+        }
+      }
+    }
+  },
+  {
+    "command": {
+      "applyConfigurationCommand": {
+        "config": {
+          "appId": "${APP_ID}"
+        },
+        "optional": false
+      }
+    },
+    "metadata": {
+      "status": "COMPLETED",
+      "timestamp": 1783522986017,
+      "duration": 5,
+      "sequenceNumber": 2,
+      "evaluatedCommand": {
+        "applyConfigurationCommand": {
+          "config": {
+            "appId": "undefined"
+          },
+          "optional": false
+        }
+      }
+    }
+  },
+  {
+    "command": {
+      "defineVariablesCommand": {
+        "env": {
+          "SCREENSHOT_PREFIX": "${SCREENSHOT_PREFIX}"
+        },
+        "optional": false
+      }
+    },
+    "metadata": {
+      "status": "COMPLETED",
+      "timestamp": 1783522985256,
+      "duration": 760,
+      "sequenceNumber": 1,
+      "evaluatedCommand": {
+        "defineVariablesCommand": {
+          "env": {
+            "SCREENSHOT_PREFIX": "undefined"
+          },
+          "optional": false
+        }
+      }
+    }
+  },
+  {
+    "command": {
+      "launchAppCommand": {
+        "appId": "${APP_ID}",
+        "optional": false
+      }
+    },
+    "metadata": {
+      "status": "FAILED",
+      "timestamp": 1783522986031,
+      "duration": 348,
+      "error": {
+        "message": "Unable to launch app undefined",
+        "cause": {
+          "stackTrace": [
+            {
+              "classLoaderName": "app",
+              "methodName": "launchApp$lambda$8",
+              "fileName": "AndroidDriver.kt",
+              "lineNumber": 222,
+              "className": "maestro.drivers.AndroidDriver",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "measured",
+              "fileName": "Metrics.kt",
+              "lineNumber": 48,
+              "className": "maestro.utils.Metrics",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "launchApp",
+              "fileName": "AndroidDriver.kt",
+              "lineNumber": 217,
+              "className": "maestro.drivers.AndroidDriver",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "launchApp$lambda$2",
+              "fileName": "Maestro.kt",
+              "lineNumber": 75,
+              "className": "maestro.Maestro",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "runInterruptibleInExpectedContext",
+              "fileName": "Interruptible.kt",
+              "lineNumber": 48,
+              "className": "kotlinx.coroutines.InterruptibleKt",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "access$runInterruptibleInExpectedContext",
+              "fileName": "Interruptible.kt",
+              "lineNumber": 1,
+              "className": "kotlinx.coroutines.InterruptibleKt",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "invokeSuspend",
+              "fileName": "Interruptible.kt",
+              "lineNumber": 40,
+              "className": "kotlinx.coroutines.InterruptibleKt$runInterruptible$2",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "resumeWith",
+              "fileName": "ContinuationImpl.kt",
+              "lineNumber": 34,
+              "className": "kotlin.coroutines.jvm.internal.BaseContinuationImpl",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "DispatchedTask.kt",
+              "lineNumber": 100,
+              "className": "kotlinx.coroutines.DispatchedTask",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "LimitedDispatcher.kt",
+              "lineNumber": 124,
+              "className": "kotlinx.coroutines.internal.LimitedDispatcher$Worker",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "Tasks.kt",
+              "lineNumber": 89,
+              "className": "kotlinx.coroutines.scheduling.TaskImpl",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "runSafely",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 586,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "executeTask",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 820,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "runWorker",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 717,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+              "nativeMethod": false
+            },
+            {
+              "classLoaderName": "app",
+              "methodName": "run",
+              "fileName": "CoroutineScheduler.kt",
+              "lineNumber": 704,
+              "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+              "nativeMethod": false
+            }
+          ],
+          "message": "Package undefined is not installed",
+          "localizedMessage": "Package undefined is not installed"
+        },
+        "stackTrace": [
+          {
+            "classLoaderName": "app",
+            "methodName": "launchAppCommand",
+            "fileName": "Orchestra.kt",
+            "lineNumber": 1146,
+            "className": "maestro.orchestra.Orchestra",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "access$launchAppCommand",
+            "fileName": "Orchestra.kt",
+            "lineNumber": 123,
+            "className": "maestro.orchestra.Orchestra",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "invokeSuspend",
+            "fileName": "Orchestra.kt",
+            "lineNumber": -1,
+            "className": "maestro.orchestra.Orchestra$launchAppCommand$1",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "resumeWith",
+            "fileName": "ContinuationImpl.kt",
+            "lineNumber": 34,
+            "className": "kotlin.coroutines.jvm.internal.BaseContinuationImpl",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "DispatchedTask.kt",
+            "lineNumber": 98,
+            "className": "kotlinx.coroutines.DispatchedTask",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "processNextEvent",
+            "fileName": "EventLoop.common.kt",
+            "lineNumber": 263,
+            "className": "kotlinx.coroutines.EventLoopImplBase",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "joinBlocking",
+            "fileName": "Builders.kt",
+            "lineNumber": 94,
+            "className": "kotlinx.coroutines.BlockingCoroutine",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking",
+            "fileName": "Builders.kt",
+            "lineNumber": 70,
+            "className": "kotlinx.coroutines.BuildersKt__BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking",
+            "lineNumber": 1,
+            "className": "kotlinx.coroutines.BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking$default",
+            "fileName": "Builders.kt",
+            "lineNumber": 48,
+            "className": "kotlinx.coroutines.BuildersKt__BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runBlocking$default",
+            "lineNumber": 1,
+            "className": "kotlinx.coroutines.BuildersKt",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSingle$lambda$0",
+            "fileName": "TestRunner.kt",
+            "lineNumber": 74,
+            "className": "maestro.cli.runner.TestRunner",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runCatching-ta8aW1Q",
+            "fileName": "TestRunner.kt",
+            "lineNumber": 203,
+            "className": "maestro.cli.runner.TestRunner",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSingle",
+            "fileName": "TestRunner.kt",
+            "lineNumber": 65,
+            "className": "maestro.cli.runner.TestRunner",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSingleFlow",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 571,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runShardSuite$lambda$10",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 532,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "newSession",
+            "fileName": "MaestroSessionManager.kt",
+            "lineNumber": 136,
+            "className": "maestro.cli.session.MaestroSessionManager",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "newSession$default",
+            "fileName": "MaestroSessionManager.kt",
+            "lineNumber": 67,
+            "className": "maestro.cli.session.MaestroSessionManager",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runShardSuite",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 479,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "access$runShardSuite",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 81,
+            "className": "maestro.cli.command.TestCommand",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "invokeSuspend",
+            "fileName": "TestCommand.kt",
+            "lineNumber": 438,
+            "className": "maestro.cli.command.TestCommand$handleSessions$1$results$1$1",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "resumeWith",
+            "fileName": "ContinuationImpl.kt",
+            "lineNumber": 34,
+            "className": "kotlin.coroutines.jvm.internal.BaseContinuationImpl",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "DispatchedTask.kt",
+            "lineNumber": 100,
+            "className": "kotlinx.coroutines.DispatchedTask",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "LimitedDispatcher.kt",
+            "lineNumber": 124,
+            "className": "kotlinx.coroutines.internal.LimitedDispatcher$Worker",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "Tasks.kt",
+            "lineNumber": 89,
+            "className": "kotlinx.coroutines.scheduling.TaskImpl",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runSafely",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 586,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "executeTask",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 820,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "runWorker",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 717,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+            "nativeMethod": false
+          },
+          {
+            "classLoaderName": "app",
+            "methodName": "run",
+            "fileName": "CoroutineScheduler.kt",
+            "lineNumber": 704,
+            "className": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+            "nativeMethod": false
+          }
+        ],
+        "localizedMessage": "Unable to launch app undefined"
+      },
+      "sequenceNumber": 5,
+      "evaluatedCommand": {
+        "launchAppCommand": {
+          "appId": "undefined",
+          "optional": false
+        }
+      }
+    }
+  }
+]

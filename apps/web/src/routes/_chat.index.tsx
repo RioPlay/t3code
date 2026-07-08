@@ -62,7 +62,7 @@ function HostedStaticOnboardingState() {
               <div className="mt-6 flex justify-center">
                 <Button render={<Link to="/settings/connections" />} size="sm">
                   <PlusIcon className="size-4" />
-                  {cloudEnabled ? "Open Connections" : "Add environment"}
+                  Manage environments
                 </Button>
               </div>
             </EmptyHeader>

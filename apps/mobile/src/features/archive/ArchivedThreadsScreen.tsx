@@ -502,7 +502,7 @@ export function ArchivedThreadsScreen(props: {
   }, [isFiltered, isInitialLoad, refreshTint]);
 
   return (
-    <View className="flex-1 bg-sheet">
+    <View className="flex-1 bg-sheet" testID="settings-archive-screen">
       <ArchivedThreadsHeader
         environments={props.environments}
         onEnvironmentChange={props.onEnvironmentChange}

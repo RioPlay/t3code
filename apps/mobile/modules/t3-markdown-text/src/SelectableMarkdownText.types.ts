@@ -11,6 +11,8 @@ export interface NativeMarkdownTextStyle {
   readonly skillTextColor: string;
   readonly quoteMarkerColor: string;
   readonly dividerColor: string;
+  readonly tableSurfaceColor: string;
+  readonly tableRowAltColor: string;
   readonly fontSize: number;
   readonly lineHeight: number;
   readonly fontFamily: string;

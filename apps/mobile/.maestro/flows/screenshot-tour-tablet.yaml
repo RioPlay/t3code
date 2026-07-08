@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+env:
+  SCREENSHOT_PREFIX: ${SCREENSHOT_PREFIX}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: adaptive-workspace-layout
+    timeout: 30000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}16-tablet-split-home
+    cropOn:
+      id: adaptive-workspace-layout
+    label: Tablet split home
+
+- tapOn:
+    id: home-thread-row
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: thread-screen
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}16-tablet-split-thread
+    cropOn:
+      id: adaptive-workspace-layout
+    label: Tablet split thread selected
+
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}16-tablet-split-accessory-rail
+    cropOn:
+      id: thread-accessory-bar
+    label: Tablet accessory rail
+    optional: true
+
+- stopApp

@@ -87,6 +87,7 @@ import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCo
 import {
   createNitroMarkdownRenderers,
   decorateNitroMarkdownWithSkills,
+  resolveMarkdownTableThemeColors,
 } from "@t3tools/mobile-markdown-text";
 import { resolveMarkdownLinkPresentation } from "@t3tools/mobile-markdown-text/links";
 import {
@@ -289,6 +290,12 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
     const markdownUserInlineCodeText = colors.userInlineCodeText;
     const markdownUserFenceBg = colors.userFenceBackground;
     const markdownUserFenceText = colors.userFenceText;
+    const tableTheme = resolveMarkdownTableThemeColors({
+      isDark: colorScheme === "dark",
+      strong: markdownStrongColor,
+      blockquoteBackground: markdownBlockquoteBg,
+      horizontalRule: markdownHrColor,
+    });
 
     const baseTheme: PartialMarkdownTheme = {
       colors: {
@@ -297,13 +304,15 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
         link: markdownLinkColor,
         blockquote: markdownBlockquoteBorder,
         border: markdownHrColor,
-        surfaceLight: markdownBlockquoteBg,
+        surface: tableTheme.surface,
+        surfaceLight: tableTheme.surfaceLight,
+        textMuted: tableTheme.textMuted,
         accent: markdownLinkColor,
-        tableBorder: markdownHrColor,
-        tableHeader: markdownBlockquoteBg,
-        tableHeaderText: markdownStrongColor,
-        tableRowOdd: "transparent",
-        tableRowEven: "transparent",
+        tableBorder: tableTheme.tableBorder,
+        tableHeader: tableTheme.tableHeader,
+        tableHeaderText: tableTheme.tableHeaderText,
+        tableRowOdd: tableTheme.tableRowOdd,
+        tableRowEven: tableTheme.tableRowEven,
       },
       spacing: {
         xs: 4,
@@ -466,6 +475,8 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
           skillTextColor: "#f0abfc",
           quoteMarkerColor: markdownUserBodyColor,
           dividerColor: markdownUserBodyColor,
+          tableSurfaceColor: tableTheme.surface,
+          tableRowAltColor: tableTheme.tableRowEven,
           fontSize: nativeMarkdownTypography.fontSize,
           lineHeight: nativeMarkdownTypography.lineHeight,
           headingFontSizes: nativeMarkdownTypography.headingFontSizes,
@@ -498,6 +509,8 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
           skillTextColor: inlineSkillForeground,
           quoteMarkerColor: markdownBlockquoteBorder,
           dividerColor: markdownHrColor,
+          tableSurfaceColor: tableTheme.surface,
+          tableRowAltColor: tableTheme.tableRowEven,
           fontSize: nativeMarkdownTypography.fontSize,
           lineHeight: nativeMarkdownTypography.lineHeight,
           headingFontSizes: nativeMarkdownTypography.headingFontSizes,
@@ -507,7 +520,14 @@ function useMarkdownStyles(onLinkPress: (href: string) => void): MarkdownStyleSe
         },
       },
     };
-  }, [colors, inlineSkillForeground, markdownFontSizes, nativeMarkdownTypography, onLinkPress]);
+  }, [
+    colorScheme,
+    colors,
+    inlineSkillForeground,
+    markdownFontSizes,
+    nativeMarkdownTypography,
+    onLinkPress,
+  ]);
 }
 
 function renderFeedEntry(

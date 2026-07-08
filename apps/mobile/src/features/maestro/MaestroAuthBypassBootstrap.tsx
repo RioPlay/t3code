@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import { applyMaestroAuthBypass, isMaestroAuthBypassEnabled } from "./maestroAuthBypass";
+import { applyMaestroAuthBypass } from "./maestroAuthBypass";
+import { isMaestroAuthBypassEnabled } from "./maestroMode";
 
-export function MaestroAuthBypassBootstrap() {
+export function MaestroAuthBypassBootstrap(props: { readonly children: ReactNode }) {
   const [ready, setReady] = useState(!isMaestroAuthBypassEnabled());
 
   useEffect(() => {
@@ -25,5 +27,5 @@ export function MaestroAuthBypassBootstrap() {
     return null;
   }
 
-  return null;
+  return props.children;
 }

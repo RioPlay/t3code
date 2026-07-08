@@ -419,16 +419,18 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
           <NativeHeaderToolbar.SearchBarSlot />
         </NativeHeaderToolbar>
       )}
-      <FileTreeBrowser
-        entries={entriesData?.entries ?? []}
-        error={entriesQuery.error}
-        isPending={entriesQuery.isPending}
-        searchQuery={searchQuery}
-        selectedPath={null}
-        onPreviewFile={handlePreviewFile}
-        onRefresh={entriesQuery.refresh}
-        onSelectFile={handleSelectFile}
-      />
+      <View testID="thread-files-screen" style={{ flex: 1 }}>
+        <FileTreeBrowser
+          entries={entriesData?.entries ?? []}
+          error={entriesQuery.error}
+          isPending={entriesQuery.isPending}
+          searchQuery={searchQuery}
+          selectedPath={null}
+          onPreviewFile={handlePreviewFile}
+          onRefresh={entriesQuery.refresh}
+          onSelectFile={handleSelectFile}
+        />
+      </View>
       <FilesToolbarBottomFade />
     </>
   );

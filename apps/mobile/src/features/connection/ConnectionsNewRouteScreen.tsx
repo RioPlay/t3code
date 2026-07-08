@@ -159,7 +159,7 @@ export function ConnectionsNewRouteScreen({
   }, [codeInput, hostInput, onChangeConnectionPairingUrl, onConnectPress, navigation]);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet" testID="connections-new-screen">
       <NativeStackScreenOptions
         options={{
           title: showScanner ? "Scan QR Code" : "Add Environment",

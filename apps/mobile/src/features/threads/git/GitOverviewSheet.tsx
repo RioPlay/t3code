@@ -349,6 +349,7 @@ export function GitOverviewSheet(props: GitOverviewSheetProps) {
     <View
       collapsable={false}
       className={isInspector ? "flex-1 border-l border-border bg-sheet" : "flex-1 bg-sheet"}
+      testID="git-overview-sheet"
     >
       <View
         style={{

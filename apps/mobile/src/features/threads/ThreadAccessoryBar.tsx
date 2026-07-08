@@ -1,8 +1,7 @@
-import { SymbolView } from "expo-symbols";
-import type { ComponentProps } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppSymbol, type AppSymbolName } from "../../components/AppSymbol";
 import { AppText as Text } from "../../components/AppText";
 import { useThemeColor } from "../../lib/useThemeColor";
 import {
@@ -13,20 +12,17 @@ import {
   type ThreadAccessoryItemId,
 } from "./threadAccessoryBarModel";
 
-type AccessoryIcon = ComponentProps<typeof SymbolView>["name"];
-
 const ACCESSORY_ITEMS: ReadonlyArray<{
   readonly id: ThreadAccessoryItemId;
   readonly label: string;
   readonly accessibilityLabel?: string;
-  readonly icon: AccessoryIcon;
+  readonly icon: AppSymbolName;
   readonly testID: string;
 }> = [
   { id: "files", label: "Files", icon: "folder", testID: "thread-accessory-files" },
   {
     id: "terminal",
-    label: "Term.",
-    accessibilityLabel: "Terminal",
+    label: "Terminal",
     icon: "terminal",
     testID: "thread-accessory-terminal",
   },
@@ -68,7 +64,7 @@ function AccessoryBarItem(props: {
   readonly id: ThreadAccessoryItemId;
   readonly label: string;
   readonly accessibilityLabel?: string;
-  readonly icon: AccessoryIcon;
+  readonly icon: AppSymbolName;
   readonly testID: string;
   readonly active: boolean;
   readonly disabled: boolean;
@@ -117,7 +113,7 @@ function AccessoryBarItem(props: {
         />
       ) : null}
       <View className="relative items-center justify-center">
-        <SymbolView name={props.icon} size={24} tintColor={tint} type="monochrome" />
+        <AppSymbol name={props.icon} size={24} tintColor={tint} type="monochrome" />
         {props.badge ? <AccessoryBadge badge={props.badge} accentColor={activeTint} /> : null}
       </View>
       {props.layout === "phone" ? (
@@ -154,6 +150,7 @@ export function ThreadAccessoryBar(props: {
     return (
       <View
         className="border-r"
+        testID="thread-accessory-bar"
         style={{
           backgroundColor: String(sheetColor),
           borderColor: String(borderColor),
@@ -178,6 +175,7 @@ export function ThreadAccessoryBar(props: {
   return (
     <View
       className="border-t"
+      testID="thread-accessory-bar"
       style={{
         backgroundColor: String(sheetColor),
         borderColor: String(borderColor),

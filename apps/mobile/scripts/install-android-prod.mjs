@@ -92,6 +92,21 @@ function assertIncludes(value, expected, label) {
   }
 }
 
+function resolveMainAndroidUserId() {
+  const configured = process.env.ANDROID_INSTALL_USER;
+  if (typeof configured === "string" && configured.trim().length > 0) {
+    return configured.trim();
+  }
+
+  const users = run("adb", ["shell", "pm", "list", "users"], { capture: true });
+  const ownerMatch = users.match(/UserInfo\{(\d+):Owner:/);
+  if (ownerMatch?.[1]) {
+    return ownerMatch[1];
+  }
+  const primaryMatch = users.match(/UserInfo\{(\d+):[^}]*:(?:PRIMARY|OWNER)/);
+  return primaryMatch?.[1] ?? "0";
+}
+
 const aapt = resolveTool("aapt");
 if (aapt == null) {
   console.error("Refusing to install production APK: Android aapt was not found.");
@@ -136,11 +151,20 @@ if (manifest.includes("expo.modules.devlauncher.launcher.DevLauncherActivity")) 
   process.exit(1);
 }
 
-console.log("Installing production APK...");
-run("adb", ["install", "-r", apkPath]);
+const mainUserId = resolveMainAndroidUserId();
+console.log(`Installing production APK to main profile (user ${mainUserId})...`);
+run("adb", ["install", "-r", "--user", mainUserId, apkPath]);
 
 console.log("Launching production app...");
-run("adb", ["shell", "am", "start", "-n", `${expectedPackage}/.MainActivity`]);
+run("adb", [
+  "shell",
+  "am",
+  "start",
+  "--user",
+  mainUserId,
+  "-n",
+  `${expectedPackage}/.MainActivity`,
+]);
 
 const packageInfo = run("adb", ["shell", "dumpsys", "package", expectedPackage], { capture: true });
 const updateLine = packageInfo

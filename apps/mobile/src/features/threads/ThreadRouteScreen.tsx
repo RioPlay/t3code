@@ -24,6 +24,7 @@ import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
 import { connectionTone } from "../connection/connectionTone";
+import { navigateToEnvironmentHub } from "../environment/environmentHubNavigation";
 
 import {
   useRemoteConnections,
@@ -453,11 +454,24 @@ function ThreadRouteContent(
   useRegisterWorkspaceInspector(activeInspectorRenderer);
 
   const handleOpenConnectionEditor = useCallback(() => {
-    void navigation.navigate("Connections");
+    navigateToEnvironmentHub(navigation);
   }, [navigation]);
   const handleOpenSettings = useCallback(() => {
     navigation.navigate("SettingsSheet", { screen: "Settings" });
   }, [navigation]);
+  const handleNewThreadInProject = useCallback(() => {
+    if (!selectedThread || !selectedThreadProject) {
+      return;
+    }
+    navigation.navigate("NewTaskSheet", {
+      screen: "NewTaskDraft",
+      params: {
+        environmentId: String(selectedThread.environmentId),
+        projectId: String(selectedThread.projectId),
+        title: selectedThreadProject.title,
+      },
+    });
+  }, [navigation, selectedThread, selectedThreadProject]);
   const handleStopThread = useCallback(() => {
     if (
       !selectedThread ||
@@ -839,6 +853,14 @@ function ThreadRouteContent(
     <>
       {usesAndroidAccessoryBar ? (
         <NativeHeaderToolbar placement="right">
+          {selectedThreadProject ? (
+            <NativeHeaderToolbar.Button
+              accessibilityLabel={`New thread in ${selectedThreadProject.title}`}
+              icon="square.and.pencil"
+              onPress={handleNewThreadInProject}
+              separateBackground
+            />
+          ) : null}
           <NativeHeaderToolbar.Button
             accessibilityLabel="Open settings"
             icon="gearshape"

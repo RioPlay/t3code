@@ -16,6 +16,10 @@ import { useWorkspaceState } from "../../state/workspace";
 import { groupProjectsByRepository } from "../../lib/repositoryGroups";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { BuildVariantBanner } from "../../components/BuildVariantBanner";
+import {
+  navigateToAddEnvironment,
+  navigateToEnvironmentHub,
+} from "../environment/environmentHubNavigation";
 import { deriveWorkspaceEmptyStateAction } from "../home/workspace-empty-state-action";
 
 function deriveProjectEmptyState(catalogState: WorkspaceState): {
@@ -114,7 +118,7 @@ export function NewTaskRouteScreen() {
   const emptyStateAction = deriveWorkspaceEmptyStateAction(catalogState);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet" testID="new-task-screen">
       <NativeStackScreenOptions
         options={{
           headerRight:
@@ -170,8 +174,8 @@ export function NewTaskRouteScreen() {
                 className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
                 onPress={() =>
                   emptyStateAction.kind === "add-connection"
-                    ? navigation.navigate("ConnectionsNew")
-                    : navigation.navigate("SettingsSheet", { screen: "SettingsEnvironments" })
+                    ? navigateToAddEnvironment(navigation)
+                    : navigateToEnvironmentHub(navigation)
                 }
               >
                 <Text className="text-sm font-t3-bold text-primary-foreground">

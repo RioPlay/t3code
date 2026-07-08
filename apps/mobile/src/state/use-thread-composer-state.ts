@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useCallback, useEffect, useMemo } from "react";
+import { KeyboardController } from "react-native-keyboard-controller";
 
 import {
   CommandId,
@@ -195,6 +196,9 @@ export function useThreadComposerState() {
     const result = await pickComposerImages({
       existingCount: composerDrafts[threadKey]?.attachments.length ?? 0,
     });
+    // Returning from the native picker can desync keyboard-controller height
+    // from actual visibility; reset so the thread composer stays docked.
+    await KeyboardController.dismiss();
     if (result.images.length > 0) {
       appendComposerDraftAttachments(threadKey, result.images);
     }
@@ -212,6 +216,7 @@ export function useThreadComposerState() {
     const result = await pasteComposerClipboard({
       existingCount: composerDrafts[threadKey]?.attachments.length ?? 0,
     });
+    await KeyboardController.dismiss();
     if (result.images.length > 0) {
       appendComposerDraftAttachments(threadKey, result.images);
     }

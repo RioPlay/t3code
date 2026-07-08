@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "app": "T3 Code Dev (Android)",
+  "package": "com.t3tools.t3code.dev",
+  "shots": [
+    {
+      "id": "01-home-thread-list",
+      "screen": "Home",
+      "cropTestId": "home-screen",
+      "expect": [
+        "Thread list or empty state visible",
+        "Android bottom bar with Settings, New task, Filter, Search",
+        "Build variant banner in development builds",
+        "No overlapping header/content at top or bottom"
+      ]
+    },
+    {
+      "id": "02-settings-root",
+      "screen": "Settings",
+      "cropTestId": "settings-screen",
+      "expect": [
+        "Environments row with count",
+        "Appearance row",
+        "Archived Threads row",
+        "Sheet grabber and readable section headers"
+      ]
+    },
+    {
+      "id": "03-settings-environments",
+      "screen": "Settings → Environments",
+      "cropTestId": "settings-environments-screen",
+      "expect": [
+        "Maestro fixture environment listed",
+        "Add environment (+) control in header",
+        "Expandable environment row"
+      ]
+    },
+    {
+      "id": "04-connections-new",
+      "screen": "Add Environment",
+      "cropTestId": "connections-new-screen",
+      "expect": [
+        "LAN discovery section",
+        "Host and pairing code fields",
+        "QR scanner toggle in header"
+      ]
+    },
+    {
+      "id": "05-settings-appearance",
+      "screen": "Settings → Appearance",
+      "cropTestId": "settings-appearance-screen",
+      "expect": [
+        "Text appearance section with font size slider",
+        "Terminal appearance section",
+        "Code appearance section with live preview"
+      ]
+    },
+    {
+      "id": "06-settings-archive",
+      "screen": "Settings → Archived Threads",
+      "cropTestId": "settings-archive-screen",
+      "expect": [
+        "Empty archive state or archived thread list",
+        "Filter/sort controls if threads exist"
+      ]
+    },
+    {
+      "id": "07-new-task",
+      "screen": "New Task",
+      "cropTestId": "new-task-screen",
+      "expect": [
+        "Maestro Project row or empty-state copy",
+        "Add project (+) in header",
+        "Choose project sheet title"
+      ]
+    },
+    {
+      "id": "08-add-project",
+      "screen": "Add Project",
+      "cropTestId": "add-project-screen",
+      "expect": ["Connected environment selector", "Local folder and remote source options"]
+    },
+    {
+      "id": "09-thread-detail",
+      "screen": "Thread",
+      "cropTestId": "thread-screen",
+      "expect": [
+        "Thread feed area",
+        "Composer at bottom",
+        "Android accessory bar: Files, Terminal, Review, Git",
+        "Header with branch/git controls"
+      ]
+    },
+    {
+      "id": "10-thread-composer-focused",
+      "screen": "Thread → Composer",
+      "cropTestId": "thread-screen",
+      "expect": [
+        "Composer input focused",
+        "Send/stop and toolbar pills visible",
+        "Keyboard may be open — composer must stay above keyboard"
+      ]
+    },
+    {
+      "id": "11-thread-accessory-bar",
+      "screen": "Thread → Accessory bar",
+      "cropTestId": "thread-accessory-bar",
+      "expect": [
+        "Four tabs with labels on phone layout",
+        "48dp minimum touch targets",
+        "Active state indicator on selected tab"
+      ]
+    },
+    {
+      "id": "12-thread-review",
+      "screen": "Thread → Review",
+      "cropTestId": "review-sheet",
+      "expect": [
+        "JS review diff file list (Android tier-0)",
+        "Review header and git shortcut",
+        "Scrollable file rows without clipped header"
+      ]
+    },
+    {
+      "id": "13-thread-files",
+      "screen": "Thread → Files",
+      "cropTestId": "thread-files-screen",
+      "expect": [
+        "File tree or loading/empty state",
+        "Files title in header",
+        "Search affordance on Android header"
+      ]
+    },
+    {
+      "id": "14-thread-terminal",
+      "screen": "Thread → Terminal",
+      "cropTestId": "thread-terminal-screen",
+      "expect": [
+        "WebView xterm surface or connection notice",
+        "Terminal title and tier subtitle in header",
+        "Dark terminal background matching theme"
+      ]
+    },
+    {
+      "id": "15-git-overview",
+      "screen": "Thread → Git",
+      "cropTestId": "git-overview-sheet",
+      "expect": [
+        "Branch name and status summary",
+        "Git action menu rows",
+        "Sheet presentation with grabber (phone)"
+      ]
+    },
+    {
+      "id": "16-tablet-split",
+      "screen": "Tablet split workspace",
+      "cropTestId": "adaptive-workspace-layout",
+      "expect": [
+        "Sidebar thread list and thread detail visible together",
+        "Accessory bar in rail layout on right edge",
+        "No empty detail pane when thread selected"
+      ],
+      "layout": "tablet"
+    }
+  ]
+}

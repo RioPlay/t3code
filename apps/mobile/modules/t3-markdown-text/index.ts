@@ -26,4 +26,5 @@ export type {
   SelectableMarkdownTextProps,
 } from "./src/SelectableMarkdownText.types";
 export { createNitroMarkdownRenderers } from "./src/nitroMarkdownRenderers";
+export { resolveMarkdownTableThemeColors } from "./src/markdownTableTheme";
 export { decorateNitroMarkdownWithSkills } from "./src/nitroSkillMarkdown";

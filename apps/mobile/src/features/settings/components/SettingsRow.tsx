@@ -57,6 +57,7 @@ export function SettingsRow(props: {
         accessibilityLabel={props.label}
         accessibilityRole="button"
         disabled={props.disabled}
+        testID={`settings-row-${target}`}
         onPress={() =>
           navigation.navigate("SettingsSheet", {
             screen: target,

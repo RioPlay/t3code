@@ -63,7 +63,9 @@ export async function ensureAgentNotificationChannels(): Promise<void> {
         name: channel.name,
         description: channel.description,
         importance: channel.importance,
-        sound: channel.importance === Notifications.AndroidImportance.LOW ? null : "default",
+        // Omit `sound` for audible channels so Android uses the system default. Unlike iOS APNs,
+        // the string "default" here refers to a bundled custom filename.
+        ...(channel.importance === Notifications.AndroidImportance.LOW ? { sound: null } : {}),
         vibrationPattern:
           channel.importance === Notifications.AndroidImportance.HIGH
             ? [0, 250, 250, 250]

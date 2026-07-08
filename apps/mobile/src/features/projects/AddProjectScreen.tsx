@@ -45,6 +45,7 @@ import { uuidv4 } from "../../lib/uuid";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { navigateToAddEnvironment } from "../environment/environmentHubNavigation";
 
 interface EnvironmentOption {
   readonly environmentId: EnvironmentId;
@@ -112,7 +113,7 @@ function AddProjectShell(props: { readonly children: ReactNode }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="flex-1 bg-sheet">
+    <View className="flex-1 bg-sheet" testID="add-project-screen">
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="automatic"
@@ -274,7 +275,7 @@ function EmptyEnvironmentState() {
         Add an environment before adding a project.
       </Text>
       <Pressable
-        onPress={() => navigation.dispatch(StackActions.replace("ConnectionsNew"))}
+        onPress={() => navigateToAddEnvironment(navigation)}
         className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
       >
         <Text className="text-sm font-t3-bold text-primary-foreground">Add environment</Text>

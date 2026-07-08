@@ -44,31 +44,32 @@ export default function App() {
 
   return (
     <RegistryContext.Provider value={appAtomRegistry}>
-      <MaestroAuthBypassBootstrap />
-      <CloudAuthProvider>
-        <AppearancePreferencesProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider statusBarTranslucent>
-              <SafeAreaProvider>
-                <StatusBar
-                  barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
-                  backgroundColor={statusBarBg}
-                  translucent
-                />
-                {/* The navigation theme drives the NATIVE header appearance: native-stack
-                    forwards `dark` as the nav bar's overrideUserInterfaceStyle. Without
-                    this, React Navigation defaults to its light theme and every native
-                    header (glass buttons, title, materials) is forced light even when
-                    the system is in dark mode. */}
-                <Navigation
-                  linking={appLinking}
-                  theme={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-                />
-              </SafeAreaProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </AppearancePreferencesProvider>
-      </CloudAuthProvider>
+      <MaestroAuthBypassBootstrap>
+        <CloudAuthProvider>
+          <AppearancePreferencesProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider statusBarTranslucent>
+                <SafeAreaProvider>
+                  <StatusBar
+                    barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
+                    backgroundColor={statusBarBg}
+                    translucent
+                  />
+                  {/* The navigation theme drives the NATIVE header appearance: native-stack
+                      forwards `dark` as the nav bar's overrideUserInterfaceStyle. Without
+                      this, React Navigation defaults to its light theme and every native
+                      header (glass buttons, title, materials) is forced light even when
+                      the system is in dark mode. */}
+                  <Navigation
+                    linking={appLinking}
+                    theme={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+                  />
+                </SafeAreaProvider>
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </AppearancePreferencesProvider>
+        </CloudAuthProvider>
+      </MaestroAuthBypassBootstrap>
     </RegistryContext.Provider>
   );
 }

@@ -12,8 +12,9 @@ import type {
   SidebarProjectGroupingMode,
   SidebarThreadSortOrder,
 } from "@t3tools/contracts";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import { ActivityIndicator, Platform, Pressable, View } from "react-native";
+import type { SearchBarCommands } from "react-native-screens";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -50,6 +51,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { WorkspaceConnectionStatus } from "./WorkspaceConnectionStatus";
 import { shouldShowWorkspaceConnectionStatus } from "./workspace-connection-status";
 import { deriveWorkspaceEmptyStateAction } from "./workspace-empty-state-action";
+import { HomeBottomBar, homeBottomBarInsetHeight } from "./HomeBottomBar";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -80,6 +82,7 @@ interface HomeScreenProps {
   readonly onSelectPendingTask: (pendingTask: PendingNewTask) => void;
   readonly onDeletePendingTask: (pendingTask: PendingNewTask) => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
+  readonly searchBarRef?: RefObject<SearchBarCommands | null>;
 }
 
 /* ─── Layout constants ───────────────────────────────────────────────── */
@@ -347,15 +350,39 @@ export function HomeScreen(props: HomeScreenProps) {
     projectCount: props.projects.length,
   });
   const emptyStateAction = deriveWorkspaceEmptyStateAction(props.catalogState);
+  const usesAndroidBottomBar = Platform.OS === "android";
+  const bottomBarInset = usesAndroidBottomBar ? homeBottomBarInsetHeight(insets.bottom) : 0;
   const connectionStatus =
     shouldShowConnectionStatus && Platform.OS !== "ios" ? (
       <View
         className="absolute left-0 right-0 items-center"
-        style={{ bottom: Math.max(insets.bottom, 18) + 76 }}
+        style={{ bottom: bottomBarInset + Math.max(insets.bottom, 18) + 12 }}
       >
         <WorkspaceConnectionStatus state={props.catalogState} onPress={props.onOpenEnvironments} />
       </View>
     ) : null;
+  const bottomBar = usesAndroidBottomBar ? (
+    <View className="absolute bottom-0 left-0 right-0">
+      <HomeBottomBar
+        environments={props.environments}
+        onEnvironmentChange={props.onEnvironmentChange}
+        onFocusSearch={() => {
+          props.searchBarRef?.current?.focus();
+        }}
+        onOpenSettings={props.onOpenSettings}
+        onManageEnvironments={props.onOpenEnvironments}
+        onAddEnvironment={props.onAddConnection}
+        onProjectGroupingModeChange={props.onProjectGroupingModeChange}
+        onProjectSortOrderChange={props.onProjectSortOrderChange}
+        onStartNewTask={props.onStartNewTask}
+        onThreadSortOrderChange={props.onThreadSortOrderChange}
+        projectGroupingMode={props.projectGroupingMode}
+        projectSortOrder={props.projectSortOrder}
+        selectedEnvironmentId={props.selectedEnvironmentId}
+        threadSortOrder={props.threadSortOrder}
+      />
+    </View>
+  ) : null;
 
   if (!hasAnyThreads) {
     return (
@@ -396,6 +423,7 @@ export function HomeScreen(props: HomeScreenProps) {
           ) : null}
         </View>
         {connectionStatus}
+        {bottomBar}
       </View>
     );
   }
@@ -462,7 +490,7 @@ export function HomeScreen(props: HomeScreenProps) {
           recycleItems
           scrollEventThrottle={16}
           contentContainerStyle={{
-            paddingBottom: nativeStackBottomScrollInset(insets, 24) + 24,
+            paddingBottom: nativeStackBottomScrollInset(insets, 24) + 24 + bottomBarInset,
           }}
           scrollIndicatorInsets={
             Platform.OS === "ios"
@@ -475,6 +503,7 @@ export function HomeScreen(props: HomeScreenProps) {
         />
       </SwipeableScrollGateProvider>
       {connectionStatus}
+      {bottomBar}
     </View>
   );
 }
