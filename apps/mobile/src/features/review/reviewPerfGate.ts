@@ -120,3 +120,14 @@ export function runReviewPerfGateMeasurement(): ReviewPerfGateMeasurement {
     samplesMs,
   };
 }
+
+export function formatReviewPerfGateReport(measurement: ReviewPerfGateMeasurement): string {
+  return [
+    "REV-007 review perf gate measurement",
+    `files: ${measurement.fileCount}`,
+    `line rows: ${measurement.totalLineRows}`,
+    `list items: ${measurement.listItemCount}`,
+    `median build ms: ${measurement.medianBuildMs.toFixed(2)} (budget ${REVIEW_PERF_GATE.listBuildBudgetMs})`,
+    `samples ms: ${measurement.samplesMs.map((sample) => sample.toFixed(2)).join(", ")}`,
+  ].join("\n");
+}

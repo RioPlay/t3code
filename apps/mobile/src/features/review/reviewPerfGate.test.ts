@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   REVIEW_PERF_GATE,
   buildReviewPerfGateFiles,
+  formatReviewPerfGateReport,
   runReviewPerfGateMeasurement,
 } from "./reviewPerfGate";
 
@@ -20,9 +21,15 @@ describe("REV-007 review perf gate", () => {
 
   it("stays under the automated list-build budget (proxy for sustained jank gate)", () => {
     const measurement = runReviewPerfGateMeasurement();
+    const report = formatReviewPerfGateReport(measurement);
 
     expect(measurement.listItemCount).toBeGreaterThan(500);
-    expect(measurement.medianBuildMs).toBeLessThan(REVIEW_PERF_GATE.listBuildBudgetMs);
+    if (measurement.medianBuildMs >= REVIEW_PERF_GATE.listBuildBudgetMs) {
+      throw new Error(
+        `${report}\nmedian build exceeded budget ${REVIEW_PERF_GATE.listBuildBudgetMs}ms`,
+      );
+    }
     expect(measurement.medianBuildMs).toBeLessThan(REVIEW_PERF_GATE.sustainedJankThresholdMs);
+    expect(report).toContain("REV-007");
   });
 });
