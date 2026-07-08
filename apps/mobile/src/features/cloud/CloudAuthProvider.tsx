@@ -17,6 +17,7 @@ import {
   setAgentAwarenessRelayTokenProvider,
   unregisterAgentAwarenessDeviceForCurrentUser,
 } from "../agent-awareness/remoteRegistration";
+import { isMaestroAuthBypassEnabled } from "../maestro/maestroMode";
 import { resolveCloudPublicConfig, resolveRelayClerkTokenOptions } from "./publicConfig";
 
 function resetManagedRelayTokenCache() {
@@ -96,6 +97,9 @@ function CloudAuthBridge(props: { readonly children: ReactNode }) {
     };
 
     if (!isSignedIn || !userId) {
+      if (isMaestroAuthBypassEnabled()) {
+        return;
+      }
       const previous = previousTokenProviderRef.current;
       previousTokenProviderRef.current = null;
       deactivateCloudRelayAccount();

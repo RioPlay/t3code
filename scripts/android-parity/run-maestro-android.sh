@@ -5,11 +5,15 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+# shellcheck source=scripts/android-parity/lib.sh
+source "${ROOT}/scripts/android-parity/lib.sh"
 
 export APP_VARIANT=development
 export EXPO_PUBLIC_MAESTRO_AUTH_BYPASS=1
 export EXPO_NO_GIT_STATUS=1
 export CI="${CI:-true}"
+export APP_ID=com.t3tools.t3code.dev
+export METRO_DEV_CLIENT_URL
 
 MAESTRO_FLOWS=(
   "apps/mobile/.maestro/flows/smoke-launch.yaml"
@@ -24,16 +28,31 @@ OPTIONAL_FLOWS=(
 )
 
 log() {
-  echo "==> $*"
+  echo "==> $*" >&2
 }
 
 ensure_maestro() {
+  if [[ -z "${JAVA_HOME:-}" ]]; then
+    for candidate in /usr/lib/jvm/java-21-openjdk /usr/lib/jvm/java-17-openjdk; do
+      if [[ -d "${candidate}" ]]; then
+        export JAVA_HOME="${candidate}"
+        break
+      fi
+    done
+  fi
   if command -v maestro >/dev/null 2>&1; then
     return
   fi
   log "Installing Maestro CLI"
   curl -Ls "https://get.maestro.mobile.dev" | bash
   export PATH="${HOME}/.maestro/bin:${PATH}"
+}
+
+connect_dev_client_bundle() {
+  log "Prime dev-client Metro connection"
+  adb reverse tcp:8081 tcp:8081 >/dev/null 2>&1 || true
+  adb shell am start -a android.intent.action.VIEW -d "${METRO_DEV_CLIENT_URL}" >/dev/null 2>&1 || true
+  sleep 12
 }
 
 ensure_google_services() {
@@ -50,8 +69,12 @@ ensure_google_services() {
   cp scripts/android-parity/fixtures/google-services.ci.json "${target}"
 }
 
-wait_for_emulator() {
-  log "Waiting for emulator"
+wait_for_android_device() {
+  select_android_device
+  METRO_DEV_CLIENT_URL="$(resolve_metro_dev_client_url)"
+  export METRO_DEV_CLIENT_URL
+  log "Metro dev-client URL: ${METRO_DEV_CLIENT_URL}"
+  log "Waiting for device ${ANDROID_SERIAL}"
   adb wait-for-device
   local booted=""
   for _ in $(seq 1 60); do
@@ -64,6 +87,9 @@ wait_for_emulator() {
   adb shell settings put global animator_duration_scale 0 >/dev/null 2>&1 || true
   adb shell settings put global transition_animation_scale 0 >/dev/null 2>&1 || true
   adb shell settings put global window_animation_scale 0 >/dev/null 2>&1 || true
+  log "Reverse Metro port 8081 for dev client"
+  adb reverse tcp:8081 tcp:8081 >/dev/null 2>&1 || true
+  prepare_android_device_ui
 }
 
 build_dev_client_apk() {
@@ -73,10 +99,12 @@ build_dev_client_apk() {
     node scripts/with-android-env.mjs bunx expo prebuild --platform android --clean
   )
 
-  log "Assemble debug APK"
+  local arch=""
+  arch="$(android_gradle_architectures)"
+  log "Assemble debug APK (${arch} for ${ANDROID_SERIAL})"
   (
     cd apps/mobile
-    node scripts/with-android-env.mjs sh -c 'chmod +x android/gradlew && cd android && ./gradlew assembleDebug -x lint --no-daemon'
+    node scripts/with-android-env.mjs sh -c "chmod +x android/gradlew && cd android && ./gradlew assembleDebug -x lint --no-daemon -PreactNativeArchitectures=${arch}"
   )
 
   local apk=""
@@ -89,17 +117,23 @@ build_dev_client_apk() {
 }
 
 install_apk() {
-  local apk="$1"
-  log "Installing ${apk}"
-  adb install -r "${apk}"
+  install_apk_main_profile "$1"
 }
 
 start_metro() {
+  if curl -fsS "http://127.0.0.1:8081/status" >/dev/null 2>&1; then
+    log "Reusing Metro on :8081"
+    return
+  fi
+
   log "Starting Metro dev client"
   (
     cd apps/mobile
-    APP_VARIANT=development EXPO_PUBLIC_MAESTRO_AUTH_BYPASS=1 \
-      bunx expo start --dev-client --scheme t3code-dev --non-interactive
+    APP_VARIANT=development \
+      EXPO_PUBLIC_MAESTRO_AUTH_BYPASS=1 \
+      T3CODE_RELAY_URL="${T3CODE_RELAY_URL:-https://relay.example.test}" \
+      CI=1 \
+      bunx expo start --dev-client --scheme t3code-dev
   ) &
   METRO_PID=$!
   trap 'kill "${METRO_PID}" 2>/dev/null || true' EXIT
@@ -138,14 +172,24 @@ run_flow() {
     resized_for_tablet="true"
   fi
   log "Maestro: ${flow}"
-  if maestro test "${flow}"; then
+  if maestro test \
+    --device "${ANDROID_SERIAL}" \
+    --config "${ROOT}/apps/mobile/.maestro/config.yaml" \
+    -e "APP_ID=${APP_ID}" \
+    -e "METRO_DEV_CLIENT_URL=${METRO_DEV_CLIENT_URL}" \
+    "${flow}"; then
     if [[ "${resized_for_tablet}" == "true" ]]; then
       reset_emulator_viewport
     fi
     return 0
   fi
   log "Retry: ${flow}"
-  if maestro test "${flow}"; then
+  if maestro test \
+    --device "${ANDROID_SERIAL}" \
+    --config "${ROOT}/apps/mobile/.maestro/config.yaml" \
+    -e "APP_ID=${APP_ID}" \
+    -e "METRO_DEV_CLIENT_URL=${METRO_DEV_CLIENT_URL}" \
+    "${flow}"; then
     if [[ "${resized_for_tablet}" == "true" ]]; then
       reset_emulator_viewport
     fi
@@ -164,12 +208,13 @@ run_flow() {
 main() {
   ensure_maestro
   ensure_google_services
-  wait_for_emulator
+  wait_for_android_device
 
   local apk
   apk="$(build_dev_client_apk)"
   install_apk "${apk}"
   start_metro
+  connect_dev_client_bundle
 
   local failed=0
   for flow in "${MAESTRO_FLOWS[@]}"; do

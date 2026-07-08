@@ -1,10 +1,12 @@
-import Constants from "expo-constants";
 import { Directory, File, Paths } from "expo-file-system";
+import * as SecureStore from "expo-secure-store";
 
 import { activateCloudRelayAccount } from "../cloud/CloudAuthProvider";
+import { CONNECTION_CATALOG_KEY } from "../../connection/catalog-store";
 import type { SavedRemoteConnection } from "../../lib/connection";
-import { saveConnection } from "../../lib/storage";
+import { replaceSavedConnections } from "../../lib/storage";
 import { buildMaestroShellSnapshot, MAESTRO_FIXTURE_ENVIRONMENT_ID } from "./maestroFixture";
+import { isMaestroAuthBypassEnabled } from "./maestroMode";
 
 export {
   buildMaestroShellSnapshot,
@@ -25,37 +27,15 @@ const MAESTRO_CONNECTION: SavedRemoteConnection = {
   displayUrl: "https://maestro.example.test",
   httpBaseUrl: "https://maestro.example.test",
   wsBaseUrl: "wss://maestro.example.test/ws",
-  bearerToken: null,
-  authenticationMethod: "dpop",
-  relayManaged: true,
-  dpopAccessToken: "maestro-dpop-token",
+  bearerToken: "maestro-bypass-token",
+  authenticationMethod: "bearer",
 };
 
-export function isMaestroAuthBypassEnabled(): boolean {
-  if (typeof __DEV__ === "undefined" || !__DEV__) {
-    return false;
-  }
-  const variant = Constants.expoConfig?.extra?.appVariant;
-  if (variant === "production") {
-    return false;
-  }
-  const extra = Constants.expoConfig?.extra as
-    | { maestro?: { authBypassEnabled?: boolean } }
-    | undefined;
-  if (extra?.maestro?.authBypassEnabled === true) {
-    return true;
-  }
-  const flag = process.env.EXPO_PUBLIC_MAESTRO_AUTH_BYPASS ?? "";
-  return flag === "1" || flag === "true";
-}
+export { isMaestroAuthBypassEnabled } from "./maestroMode";
 
 async function writeMaestroShellSnapshot(): Promise<void> {
   const snapshot = buildMaestroShellSnapshot();
-  const directory = new Directory(
-    Paths.document,
-    SHELL_SNAPSHOT_CACHE_DIRECTORY,
-    encodeURIComponent(MAESTRO_FIXTURE_ENVIRONMENT_ID),
-  );
+  const directory = new Directory(Paths.document, SHELL_SNAPSHOT_CACHE_DIRECTORY);
   if (!directory.exists) {
     directory.create({ intermediates: true, overwrite: true });
   }
@@ -72,11 +52,21 @@ async function writeMaestroShellSnapshot(): Promise<void> {
   );
 }
 
+async function replaceSavedConnectionsWithMaestroFixture(): Promise<void> {
+  // Drop the migrated v1 catalog so the next load re-imports only the Maestro fixture.
+  try {
+    await SecureStore.deleteItemAsync(CONNECTION_CATALOG_KEY);
+  } catch {
+    // Secure store may be unavailable in some harnesses; legacy seed still applies.
+  }
+  await replaceSavedConnections([MAESTRO_CONNECTION]);
+}
+
 export async function applyMaestroAuthBypass(): Promise<void> {
   if (!isMaestroAuthBypassEnabled()) {
     return;
   }
-  await saveConnection(MAESTRO_CONNECTION);
+  await replaceSavedConnectionsWithMaestroFixture();
   await writeMaestroShellSnapshot();
   activateCloudRelayAccount(MAESTRO_ACCOUNT_ID, async () => MAESTRO_RELAY_TOKEN);
 }

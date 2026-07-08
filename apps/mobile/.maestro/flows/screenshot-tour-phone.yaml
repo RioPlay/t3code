@@ -1,0 +1,206 @@
+appId: ${APP_ID}
+env:
+  SCREENSHOT_PREFIX: ${SCREENSHOT_PREFIX}
+---
+- runFlow: ../fixtures/auth-bypass.yaml
+
+# ── Home ──────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}01-home-thread-list
+    cropOn:
+      id: home-screen
+    label: Home thread list
+
+# ── Settings stack ────────────────────────────────────────────────────
+- tapOn:
+    id: home-bottom-settings
+- runFlow:
+    when:
+      visible: "Console Error"
+    file: ../fixtures/dismiss-logbox.yaml
+- tapOn:
+    id: home-bottom-settings
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}02-settings-root
+    cropOn:
+      id: settings-screen
+    label: Settings root
+
+- tapOn:
+    id: settings-row-SettingsEnvironments
+- extendedWaitUntil:
+    visible:
+      id: settings-environments-screen
+    timeout: 10000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}03-settings-environments
+    cropOn:
+      id: settings-environments-screen
+    label: Settings environments
+
+# Native header + is unreliable to hit on Android; use deep link instead.
+- openLink: t3code-dev://settings/environment-new
+- extendedWaitUntil:
+    visible:
+      id: connections-new-screen
+    timeout: 10000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}04-connections-new
+    cropOn:
+      id: connections-new-screen
+    label: Add environment
+
+- back
+- back
+- tapOn:
+    id: settings-row-SettingsAppearance
+- extendedWaitUntil:
+    visible:
+      id: settings-appearance-screen
+    timeout: 10000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}05-settings-appearance
+    cropOn:
+      id: settings-appearance-screen
+    label: Settings appearance
+
+- back
+- tapOn:
+    id: settings-row-SettingsArchive
+- extendedWaitUntil:
+    visible:
+      id: settings-archive-screen
+    timeout: 10000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}06-settings-archive
+    cropOn:
+      id: settings-archive-screen
+    label: Archived threads
+
+- back
+- back
+
+# ── New task / add project ────────────────────────────────────────────
+- tapOn:
+    id: home-bottom-new-task
+- extendedWaitUntil:
+    visible:
+      id: new-task-screen
+    timeout: 10000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}07-new-task
+    cropOn:
+      id: new-task-screen
+    label: New task
+
+- openLink: t3code-dev://new/add-project
+- extendedWaitUntil:
+    visible:
+      id: add-project-screen
+    timeout: 10000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}08-add-project
+    cropOn:
+      id: add-project-screen
+    label: Add project
+
+- back
+- back
+
+# ── Thread workspace ──────────────────────────────────────────────────
+- tapOn:
+    id: home-thread-row
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: thread-screen
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}09-thread-detail
+    cropOn:
+      id: thread-screen
+    label: Thread detail
+
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}11-thread-accessory-bar
+    cropOn:
+      id: thread-accessory-bar
+    label: Thread accessory bar
+
+- tapOn:
+    id: thread-composer-input
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}10-thread-composer-focused
+    cropOn:
+      id: thread-screen
+    label: Thread composer focused
+
+- hideKeyboard
+
+- tapOn:
+    id: thread-accessory-review
+- extendedWaitUntil:
+    visible:
+      id: review-sheet
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}12-thread-review
+    cropOn:
+      id: review-sheet
+    label: Thread review
+
+- back
+
+- tapOn:
+    id: thread-accessory-files
+- extendedWaitUntil:
+    visible:
+      id: thread-files-screen
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}13-thread-files
+    cropOn:
+      id: thread-files-screen
+    label: Thread files
+
+- back
+
+- tapOn:
+    id: thread-accessory-terminal
+- extendedWaitUntil:
+    visible:
+      id: thread-terminal-screen
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}14-thread-terminal
+    cropOn:
+      id: thread-terminal-screen
+    label: Thread terminal
+
+- back
+
+- tapOn:
+    id: thread-accessory-git
+- extendedWaitUntil:
+    visible:
+      id: git-overview-sheet
+    timeout: 15000
+- takeScreenshot:
+    path: ${SCREENSHOT_PREFIX}15-git-overview
+    cropOn:
+      id: git-overview-sheet
+    label: Git overview
+
+- back
+- back
+
+- stopApp

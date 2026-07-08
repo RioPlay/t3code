@@ -2,6 +2,7 @@
 appId: com.t3tools.t3code.dev
 env:
   APP_ID: com.t3tools.t3code.dev
+  METRO_DEV_CLIENT_URL: exp+t3-code://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081
   MAESTRO_AUTH_BYPASS: ${EXPO_PUBLIC_MAESTRO_AUTH_BYPASS}
   RELAY_STAGING_URL: ${RELAY_STAGING_URL}
   RELAY_STAGING_TEST_SECRET: ${RELAY_STAGING_TEST_SECRET}

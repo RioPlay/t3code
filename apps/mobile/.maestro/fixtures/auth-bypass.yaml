@@ -1,9 +1,14 @@
 appId: ${APP_ID}
+env:
+  METRO_DEV_CLIENT_URL: ${METRO_DEV_CLIENT_URL}
 ---
-- launchApp
+# launchApp opens Expo Dev Launcher and blocks the Metro deep link on physical devices.
+# Prime the bundle via deep link instead (matches connect_dev_client_bundle in lib.sh).
+- stopApp
+- openLink: ${METRO_DEV_CLIENT_URL}
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
-    timeout: 30000
+      text: "Maestro review thread"
+    timeout: 120000
 - assertVisible:
     id: "home-screen"

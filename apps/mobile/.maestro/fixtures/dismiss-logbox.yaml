@@ -1,0 +1,7 @@
+appId: ${APP_ID}
+---
+- tapOn:
+    text: "Dismiss"
+- tapOn:
+    text: "Minimize"
+    optional: true

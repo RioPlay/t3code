@@ -34,6 +34,7 @@
     "config:dev": "APP_VARIANT=development expo config",
     "config:preview": "APP_VARIANT=preview expo config",
     "config:prod": "APP_VARIANT=production expo config",
+    "screenshot-tour:android": "bash ../../scripts/android-parity/run-screenshot-tour.sh",
     "profile:android:hermes": "mkdir -p profiles/review && react-native profile-hermes profiles/review",
     "sync:pierre-icons": "node modules/t3-markdown-text/scripts/sync-pierre-file-icons.mjs",
     "sync:terminal-webview": "node scripts/sync-terminal-webview-assets.mjs",
