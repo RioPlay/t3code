@@ -4,7 +4,7 @@ import {
   type NodeStyleOverrides,
   type PartialMarkdownTheme,
 } from "react-native-nitro-markdown";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, useColorScheme, View } from "react-native";
 
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
 import {
@@ -19,7 +19,10 @@ import {
   type NativeMarkdownTextStyle,
 } from "../../native/SelectableMarkdownText";
 import { shouldUseNitroMarkdown } from "../../platform/capabilities";
-import { createNitroMarkdownRenderers } from "@t3tools/mobile-markdown-text";
+import {
+  createNitroMarkdownRenderers,
+  resolveMarkdownTableThemeColors,
+} from "@t3tools/mobile-markdown-text";
 
 interface MarkdownPreviewStyles {
   readonly theme: PartialMarkdownTheme;
@@ -29,6 +32,7 @@ interface MarkdownPreviewStyles {
 }
 
 function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): MarkdownPreviewStyles {
+  const colorScheme = useColorScheme();
   const { appearance } = useAppearancePreferences();
   const markdownFontSizes = useMemo(
     () => resolveMarkdownFontSizes(appearance.baseFontSize),
@@ -49,6 +53,12 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
   const skillText = String(useThemeColor("--color-inline-skill-foreground"));
 
   return useMemo(() => {
+    const tableTheme = resolveMarkdownTableThemeColors({
+      isDark: colorScheme === "dark",
+      strong,
+      blockquoteBackground,
+      horizontalRule,
+    });
     const renderers = createNitroMarkdownRenderers({
       onLinkPress,
       inlineTextColor: body,
@@ -70,11 +80,15 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
           link,
           blockquote: blockquoteBorder,
           border: horizontalRule,
-          surfaceLight: blockquoteBackground,
+          surface: tableTheme.surface,
+          surfaceLight: tableTheme.surfaceLight,
+          textMuted: tableTheme.textMuted,
           accent: link,
-          tableBorder: horizontalRule,
-          tableHeader: blockquoteBackground,
-          tableHeaderText: strong,
+          tableBorder: tableTheme.tableBorder,
+          tableHeader: tableTheme.tableHeader,
+          tableHeaderText: tableTheme.tableHeaderText,
+          tableRowOdd: tableTheme.tableRowOdd,
+          tableRowEven: tableTheme.tableRowEven,
           code: codeText,
           codeBackground,
         },
@@ -134,6 +148,8 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
         skillTextColor: skillText,
         quoteMarkerColor: blockquoteBorder,
         dividerColor: horizontalRule,
+        tableSurfaceColor: tableTheme.surface,
+        tableRowAltColor: tableTheme.tableRowEven,
         fontSize: nativeMarkdownTypography.fontSize,
         lineHeight: nativeMarkdownTypography.lineHeight,
         headingFontSizes: nativeMarkdownTypography.headingFontSizes,
@@ -148,6 +164,7 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
     body,
     codeBackground,
     codeText,
+    colorScheme,
     horizontalRule,
     link,
     markdownFontSizes,

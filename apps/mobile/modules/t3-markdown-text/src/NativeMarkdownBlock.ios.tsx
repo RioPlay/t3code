@@ -330,6 +330,7 @@ function NativeTable(props: {
     <ScrollView horizontal bounces={false} showsHorizontalScrollIndicator={false}>
       <View
         style={{
+          backgroundColor: props.textStyle.tableSurfaceColor,
           borderColor: props.textStyle.dividerColor,
           borderCurve: "continuous",
           borderRadius: 8,
@@ -342,7 +343,12 @@ function NativeTable(props: {
             key={nodeKey(row, rowIndex)}
             style={{
               flexDirection: "row",
-              backgroundColor: rowIndex === 0 ? props.textStyle.codeBackgroundColor : "transparent",
+              backgroundColor:
+                rowIndex === 0
+                  ? props.textStyle.codeBackgroundColor
+                  : rowIndex % 2 === 0
+                    ? "transparent"
+                    : props.textStyle.tableRowAltColor,
               borderTopColor: props.textStyle.dividerColor,
               borderTopWidth: rowIndex === 0 ? 0 : 1,
             }}
