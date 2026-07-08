@@ -1,10 +1,12 @@
 # Android parity
 
-T3 Code Mobile ships a full Android dev client alongside iOS. Android targets **tier-1+ parity**:
-native terminal and composer, certified JS review, and Nitro markdown, while iOS-only modules
-remain available on Apple platforms.
+T3 Code Mobile ships a full Android dev client alongside iOS. Android has reached
+**tier-2 store-prep parity** on this fork: native terminal and composer, certified JS review,
+Nitro markdown, variant launcher art, production cleartext off, and Play internal track prep.
 
-## Tier-1+ defaults
+## Tier tables
+
+### Tier-1+ surface defaults
 
 Resolved at build time in `src/platform/capabilities.ts`:
 
@@ -15,13 +17,29 @@ Resolved at build time in `src/platform/capabilities.ts`:
 | Terminal    | Native `T3TerminalView`                  | Native `T3TerminalView`      |
 | Composer    | Native `T3ComposerEditor`                | Native `T3ComposerEditor`    |
 
+### Tier-2 program status (t00–t20)
+
+| Area                    | Status | Notes                                                |
+| ----------------------- | ------ | ---------------------------------------------------- |
+| Correctness / loop      | Done   | t00–t01                                              |
+| JS review + REV-007     | Done   | t02–t04, t11 certify; t12–t13 superseded (js-tier1)  |
+| Native terminal default | Done   | t05                                                  |
+| Chrome passes           | Done   | t06, t15 mail-search toolbar; t15b optional skipped  |
+| Composer strip + native | Done   | t07–t10                                              |
+| Nitro markdown polish   | Done   | t14                                                  |
+| Variant launcher icons  | Done   | t16                                                  |
+| Agent notifications     | Done   | t17 ongoing channels + Maestro                       |
+| Store / Play prep       | Done   | t18 AAB + internal draft; hg01/hg02 human            |
+| Cleartext / nightly CI  | Done   | t19 production cleartext off; native-default nightly |
+| Sign-off                | Done   | t20 this document                                    |
+
 Override locally via repository-root `.env` / `.env.local` (see [`.env.example`](../../../.env.example)):
 
 ```bash
-EXPO_PUBLIC_FORCE_JS_REVIEW=1          # force JS review (CI/unit tests; unset for tier-1+ local defaults)
-EXPO_PUBLIC_FORCE_NITRO_MARKDOWN=1     # force Nitro markdown
-EXPO_PUBLIC_TERMINAL_WEBVIEW=1         # force WebView terminal (Android default when unset)
-EXPO_PUBLIC_TERMINAL_WEBVIEW=0         # opt into native terminal on Android
+EXPO_PUBLIC_FORCE_JS_REVIEW=1          # force JS review (CI dogfood / unit tests)
+EXPO_PUBLIC_FORCE_NITRO_MARKDOWN=1     # force Nitro markdown (pinned on production EAS)
+EXPO_PUBLIC_TERMINAL_WEBVIEW=1         # force WebView terminal
+EXPO_PUBLIC_TERMINAL_WEBVIEW=0         # force native terminal (also production EAS pin; default when unset is native)
 EXPO_PUBLIC_COMPOSER_CHIP_MODE=strip   # force strip composer chips
 EXPO_PUBLIC_NATIVE_COMPOSER=0          # opt out of native composer on Android
 ```
@@ -39,14 +57,15 @@ EXPO_PUBLIC_NATIVE_COMPOSER=0          # opt out of native composer on Android
 Android-specific product features:
 
 - Thread accessory bar (phone + tablet rail layouts)
-- Ongoing agent notification + FCM push registration
+- Ongoing agent notification + FCM push registration (phase-matched channels)
 - Predictive back + edge-to-edge insets (SDK 35+)
-- Variant adaptive-icon background colors (dev / preview / production)
+- Variant adaptive-icon foregrounds + solid plate colors (dev / preview / production)
+- Material mail-search toolbar chrome on key list headers
 
 iOS-only features without Android equivalents:
 
 - Live Activity + home-screen widget (`expo-widgets`)
-- Liquid glass / native mail-search toolbar chrome
+- Liquid glass chrome (Android uses Material fills)
 
 ## Build and run
 
@@ -58,8 +77,9 @@ Key build wiring:
 - `plugins/withAndroidBuildFixes.cjs` — expo-dev-client Gradle ordering + SDK path
 - `plugins/withAndroidCleartextTraffic.cjs` — cleartext HTTP for **development/preview** only (production = off)
 - `plugins/withAndroidGoogleServices.cjs` — fails prebuild with a clear message when FCM config is missing
+- `eas.json` production — AAB, remote credentials, Play **internal** draft submit, tier-1+ env pins
 
-FCM setup: [FIREBASE-ANDROID.md](./FIREBASE-ANDROID.md).
+FCM + Play human gates: [FIREBASE-ANDROID.md](./FIREBASE-ANDROID.md).
 
 ## Verification
 
@@ -88,24 +108,19 @@ Review perf proxy gate: `src/features/review/reviewPerfGate.test.ts` (REV-007 th
 certified JS review on Android at t11 (median list build well under 50 ms); native port (t12–t13)
 skipped unless perf regresses.
 
-## Post-program (fork completion)
+Production EAS: `.github/workflows/mobile-eas-production.yml` (`workflow_dispatch`).
 
-After the s01–s26 stack lands on your fork, run the post-program loop to merge
-follow-up PRs (new-thread entry points, LAN pairing, UX polish):
+## Loop runners
 
 ```bash
 cp scripts/android-parity/loop-config.example.json scratch/android-parity/loop-config.json
 # Edit fork → your GitHub fork (e.g. RioPlay/t3code)
 scripts/android-parity/sync-loop-state.sh
-scripts/android-parity/run-post-program.sh
+scripts/android-parity/run-tier1-plus.sh   # phase tier1_plus (t00–t20)
 ```
 
-`run-post-program.sh` runs `gate.sh --quick`, merges required PRs via `advance-pr.sh`,
-and pulls `main`. Optional stretch PRs (native terminal default, composer scaffold) are
-skipped unless you merge them manually.
+## Remaining gaps (post tier-2)
 
-## Remaining gaps (priority)
-
-1. **Secondary chrome** — continue aligning Android header toolbars with iOS mail-search patterns
-2. ~~**Variant launcher art**~~ — done (t16): distinct foregrounds per development/preview/production + solid adaptive plates
-3. ~~**Store readiness**~~ — t18 Play internal prep + t19 production cleartext off / nightly native-default CI
+1. **Human store publish** — hg01/hg02: production `google-services` on EAS + Play internal rollout
+2. **Secondary chrome polish** — ongoing design-review of edge screens vs iOS reference
+3. **Optional M4** — FGS, widgets, Ghostty NDK (out of scope per DEC-003/DEC-005)
