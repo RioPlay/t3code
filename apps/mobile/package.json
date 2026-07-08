@@ -62,6 +62,7 @@
     "@shikijs/themes": "4.2.0",
     "@t3tools/client-runtime": "workspace:*",
     "@t3tools/contracts": "workspace:*",
+    "@t3tools/mobile-composer-editor": "file:./modules/t3-composer-editor",
     "@t3tools/mobile-lan-discovery": "file:./modules/t3-lan-discovery",
     "@t3tools/mobile-markdown-text": "file:./modules/t3-markdown-text",
     "@t3tools/mobile-native-controls": "file:./modules/t3-native-controls",

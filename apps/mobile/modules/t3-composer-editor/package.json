@@ -1,0 +1,17 @@
+{
+  "name": "@t3tools/mobile-composer-editor",
+  "version": "0.0.0",
+  "private": true,
+  "expo-module": {
+    "ios": {
+      "modules": [
+        "T3ComposerEditorModule"
+      ]
+    },
+    "android": {
+      "modules": [
+        "expo.modules.t3composereditor.T3ComposerEditorModule"
+      ]
+    }
+  }
+}
