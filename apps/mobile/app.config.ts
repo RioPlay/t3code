@@ -1,8 +1,13 @@
 import type { ExpoConfig } from "expo/config";
 
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
+import {
+  ANDROID_ADAPTIVE_MONOCHROME_IMAGE,
+  ANDROID_VARIANT_ASSETS,
+  type MobileAppVariant,
+} from "./variantAssets.ts";
 
-type AppVariant = "development" | "preview" | "production";
+type AppVariant = MobileAppVariant;
 
 const repoEnv = loadRepoEnv();
 Object.assign(process.env, repoEnv);
@@ -16,6 +21,7 @@ const VARIANT_CONFIG: Record<
     readonly scheme: string;
     readonly iosIcon: string;
     readonly androidIcon: string;
+    readonly androidAdaptiveForegroundImage: string;
     readonly androidAdaptiveBackgroundColor: string;
     readonly iosBundleIdentifier: string;
     readonly androidPackage: string;
@@ -26,8 +32,7 @@ const VARIANT_CONFIG: Record<
     appName: "T3 Code Dev",
     scheme: "t3code-dev",
     iosIcon: "./assets/icon-composer-dev.icon",
-    androidIcon: "./assets/icon.png",
-    androidAdaptiveBackgroundColor: "#F59E0B",
+    ...ANDROID_VARIANT_ASSETS.development,
     iosBundleIdentifier: "com.t3tools.t3code.dev",
     androidPackage: "com.t3tools.t3code.dev",
     relyingParty: "clerk.t3.codes",
@@ -36,8 +41,7 @@ const VARIANT_CONFIG: Record<
     appName: "T3 Code Preview",
     scheme: "t3code-preview",
     iosIcon: "./assets/icon-composer-dev.icon",
-    androidIcon: "./assets/icon.png",
-    androidAdaptiveBackgroundColor: "#8B5CF6",
+    ...ANDROID_VARIANT_ASSETS.preview,
     iosBundleIdentifier: "com.t3tools.t3code.preview",
     androidPackage: "com.t3tools.t3code.preview",
     relyingParty: "clerk.t3.codes",
@@ -46,8 +50,7 @@ const VARIANT_CONFIG: Record<
     appName: "T3 Code",
     scheme: "t3code",
     iosIcon: "./assets/icon-composer-prod.icon",
-    androidIcon: "./assets/icon.png",
-    androidAdaptiveBackgroundColor: "#E6F4FE",
+    ...ANDROID_VARIANT_ASSETS.production,
     iosBundleIdentifier: "com.t3tools.t3code",
     androidPackage: "com.t3tools.t3code",
     relyingParty: "clerk.t3.codes",
@@ -90,7 +93,8 @@ const config: ExpoConfig = {
   },
   // Allow tablet/DeX rotation; compact phones still use portrait-first layouts.
   orientation: "default",
-  icon: "./assets/icon.png",
+  // Default Expo icon follows the active variant so prebuild/store art stay in sync.
+  icon: variant.androidIcon,
   userInterfaceStyle: "automatic",
   updates: {
     enabled: true,
@@ -125,10 +129,11 @@ const config: ExpoConfig = {
     package: variant.androidPackage,
     googleServicesFile: resolveGoogleServicesFile(APP_VARIANT),
     adaptiveIcon: {
+      // Solid plate color only — no backgroundImage so variants stay visually distinct
+      // when launcher masks crop the foreground.
       backgroundColor: variant.androidAdaptiveBackgroundColor,
-      foregroundImage: "./assets/android-icon-foreground.png",
-      backgroundImage: "./assets/android-icon-background.png",
-      monochromeImage: "./assets/android-icon-monochrome.png",
+      foregroundImage: variant.androidAdaptiveForegroundImage,
+      monochromeImage: ANDROID_ADAPTIVE_MONOCHROME_IMAGE,
     },
     predictiveBackGestureEnabled: true,
   },

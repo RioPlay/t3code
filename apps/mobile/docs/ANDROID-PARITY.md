@@ -105,5 +105,5 @@ skipped unless you merge them manually.
 ## Remaining gaps (priority)
 
 1. **Secondary chrome** — continue aligning Android header toolbars with iOS mail-search patterns
-2. **Variant launcher art** — distinct foreground icons per variant (background colors exist today)
+2. ~~**Variant launcher art**~~ — done (t16): distinct foregrounds per development/preview/production + solid adaptive plates
 3. **Store readiness** — production cleartext / signing / Play internal track validation
