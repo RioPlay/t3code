@@ -3,14 +3,23 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   resolveThreadAccessoryActiveItem,
   resolveThreadAccessoryBadges,
+  resolveThreadAccessoryReviewPendingDot,
+  shouldHidePhoneThreadAccessoryBar,
   threadAccessoryDisabledMessage,
 } from "./threadAccessoryBarModel";
 
 describe("threadAccessoryBarModel", () => {
-  it("marks files and git inspectors as active accessory items", () => {
-    expect(resolveThreadAccessoryActiveItem({ inspectorMode: "files" })).toBe("files");
-    expect(resolveThreadAccessoryActiveItem({ inspectorMode: "git" })).toBe("git");
-    expect(resolveThreadAccessoryActiveItem({ inspectorMode: null })).toBeNull();
+  it("marks visible accessory surfaces as active accessory items", () => {
+    expect(resolveThreadAccessoryActiveItem({ activeSurface: "files" })).toBe("files");
+    expect(resolveThreadAccessoryActiveItem({ activeSurface: "terminal" })).toBe("terminal");
+    expect(resolveThreadAccessoryActiveItem({ activeSurface: "review" })).toBe("review");
+    expect(resolveThreadAccessoryActiveItem({ activeSurface: "git" })).toBe("git");
+    expect(resolveThreadAccessoryActiveItem({ activeSurface: null })).toBeNull();
+  });
+
+  it("shows a review dot only when draft review comments are pending", () => {
+    expect(resolveThreadAccessoryReviewPendingDot({ pendingReviewCommentCount: 0 })).toBe(false);
+    expect(resolveThreadAccessoryReviewPendingDot({ pendingReviewCommentCount: 2 })).toBe(true);
   });
 
   it("derives review, git, and terminal badges without zero counts", () => {
@@ -66,6 +75,37 @@ describe("threadAccessoryBarModel", () => {
     ).toEqual({
       git: { kind: "dot" },
     });
+  });
+
+  it("hides the phone accessory bar only while the software keyboard is open on Android", () => {
+    expect(
+      shouldHidePhoneThreadAccessoryBar({
+        usesAndroidAccessoryBar: true,
+        layout: "phone",
+        isKeyboardVisible: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHidePhoneThreadAccessoryBar({
+        usesAndroidAccessoryBar: true,
+        layout: "phone",
+        isKeyboardVisible: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHidePhoneThreadAccessoryBar({
+        usesAndroidAccessoryBar: false,
+        layout: "phone",
+        isKeyboardVisible: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHidePhoneThreadAccessoryBar({
+        usesAndroidAccessoryBar: true,
+        layout: "rail",
+        isKeyboardVisible: true,
+      }),
+    ).toBe(false);
   });
 
   it("returns disabled snackbar copy per item", () => {

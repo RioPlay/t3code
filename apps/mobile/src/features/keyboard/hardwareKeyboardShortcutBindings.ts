@@ -23,6 +23,7 @@ export const HARDWARE_KEYBOARD_SHORTCUT_BINDINGS = [
   { command: "files", key: "f", modifiers: { ctrl: true, shift: true } },
   { command: "terminal", key: "t", modifiers: { ctrl: true, shift: true } },
   { command: "review", key: "r", modifiers: { ctrl: true, shift: true } },
+  { command: "git", key: "g", modifiers: { ctrl: true, shift: true } },
   { command: "toggleSidebar", key: "\\", modifiers: { ctrl: true } },
 ] as const satisfies ReadonlyArray<HardwareKeyboardShortcutBinding>;
 

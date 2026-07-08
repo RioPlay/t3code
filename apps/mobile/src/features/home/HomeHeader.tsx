@@ -9,12 +9,10 @@ import { useCallback, useRef, type RefObject } from "react";
 import { Platform } from "react-native";
 import type { SearchBarCommands } from "react-native-screens";
 
-import { nativeHeaderScrollEdgeEffects } from "../../native/StackHeader";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
 import { createNativeMailSearchToolbarItem } from "../layout/native-mail-search-toolbar";
-import { HeaderIconButton } from "../../components/HeaderIconButton";
 import type { HomeProjectSortOrder } from "./homeThreadList";
 import {
   buildHomeListFilterMenu,
@@ -28,7 +26,6 @@ import {
 } from "./home-list-options";
 
 export type HomeHeaderEnvironment = HomeListFilterMenuEnvironment;
-const HEADER_SCROLL_EDGE_EFFECTS = nativeHeaderScrollEdgeEffects(Platform.OS, Platform.Version);
 
 export function HomeHeader(props: {
   readonly environments: ReadonlyArray<HomeHeaderEnvironment>;
@@ -77,17 +74,6 @@ export function HomeHeader(props: {
                     type: "button",
                   }),
                 ]
-              : undefined,
-          headerRight:
-            Platform.OS === "android"
-              ? () => (
-                  <HeaderIconButton
-                    accessibilityLabel="New task"
-                    icon="plus"
-                    onPress={props.onStartNewTask}
-                    testID="home-new-task-button"
-                  />
-                )
               : undefined,
           unstable_headerToolbarItems:
             Platform.OS === "ios"

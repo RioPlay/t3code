@@ -8,6 +8,7 @@ export type HardwareKeyboardCommand =
   | "files"
   | "terminal"
   | "review"
+  | "git"
   | "toggleSidebar";
 
 type CommandHandler = () => boolean | void;
