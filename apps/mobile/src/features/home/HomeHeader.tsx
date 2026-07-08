@@ -213,13 +213,6 @@ export function HomeHeader(props: {
           </NativeHeaderToolbar.Menu>
           <NativeHeaderToolbar.Spacer width={8} sharesBackground={false} />
           <NativeHeaderToolbar.SearchBarSlot />
-          <NativeHeaderToolbar.Spacer width={8} sharesBackground={false} />
-          <NativeHeaderToolbar.Button
-            accessibilityLabel="New task"
-            icon="square.and.pencil"
-            onPress={props.onStartNewTask}
-            separateBackground
-          />
         </NativeHeaderToolbar>
       )}
     </>
