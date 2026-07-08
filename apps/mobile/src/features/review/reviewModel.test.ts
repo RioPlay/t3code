@@ -7,6 +7,8 @@ import {
   type ReviewDiffPreviewSource,
 } from "@t3tools/contracts";
 
+import { buildReviewPerfGateFiles } from "./reviewPerfGate";
+
 import {
   buildReviewListItems,
   buildReviewParsedDiff,
@@ -350,5 +352,18 @@ describe("buildReviewParsedDiff", () => {
         actionLabel: "Load diff",
       }),
     ]);
+  });
+
+  it("certifies REV-007 fixture flattens into 500+ virtualized list rows", () => {
+    const files = buildReviewPerfGateFiles();
+    const expandedFileIds = files.map((file) => file.id);
+    const items = buildReviewListItems({
+      files,
+      expandedFileIds,
+      revealedLargeFileIds: expandedFileIds,
+    });
+
+    expect(items.length).toBeGreaterThan(500);
+    expect(items.some((item) => item.kind === "line")).toBe(true);
   });
 });
