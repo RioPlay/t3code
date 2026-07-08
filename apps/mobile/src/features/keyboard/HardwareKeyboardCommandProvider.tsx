@@ -29,6 +29,7 @@ export function HardwareKeyboardCommandProvider({
       commands.add("files");
       commands.add("terminal");
       commands.add("review");
+      commands.add("git");
     }
     return [...commands];
   }, [pathname, registrationVersion, navigation]);
@@ -60,6 +61,9 @@ export function HardwareKeyboardCommandProvider({
       }
       if (command === "review" && !/\/review(?:\/|$)/.test(pathname)) {
         navigation.navigate("ThreadReview", thread);
+      }
+      if (command === "git" && !/\/git(?:\/|$)/.test(pathname)) {
+        navigation.navigate("GitOverview", thread);
       }
     },
     [pathname, navigation],

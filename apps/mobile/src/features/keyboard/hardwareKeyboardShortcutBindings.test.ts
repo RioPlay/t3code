@@ -14,6 +14,7 @@ describe("HARDWARE_KEYBOARD_SHORTCUT_BINDINGS", () => {
     expect(commands).toContain("files");
     expect(commands).toContain("terminal");
     expect(commands).toContain("review");
+    expect(commands).toContain("git");
     expect(commands).toContain("toggleSidebar");
   });
 });
@@ -36,6 +37,7 @@ describe("matchHardwareKeyboardShortcut", () => {
     expect(matchHardwareKeyboardShortcut("f", { ctrl: true, shift: true })).toBe("files");
     expect(matchHardwareKeyboardShortcut("t", { ctrl: true, shift: true })).toBe("terminal");
     expect(matchHardwareKeyboardShortcut("r", { ctrl: true, shift: true })).toBe("review");
+    expect(matchHardwareKeyboardShortcut("g", { ctrl: true, shift: true })).toBe("git");
   });
 
   it("maps ctrl+\\ to toggleSidebar", () => {

@@ -11,18 +11,18 @@ export type ThreadAccessoryBadge =
   | { readonly kind: "dot" }
   | { readonly kind: "count"; readonly count: number };
 
-export type ThreadAccessoryInspectorMode = "files" | "git" | "route" | null;
+export type ThreadAccessorySurface = "files" | "terminal" | "review" | "git" | null;
 
 export function resolveThreadAccessoryActiveItem(input: {
-  readonly inspectorMode: ThreadAccessoryInspectorMode;
+  readonly activeSurface: ThreadAccessorySurface;
 }): ThreadAccessoryItemId | null {
-  if (input.inspectorMode === "files") {
-    return "files";
-  }
-  if (input.inspectorMode === "git") {
-    return "git";
-  }
-  return null;
+  return input.activeSurface;
+}
+
+export function resolveThreadAccessoryReviewPendingDot(input: {
+  readonly pendingReviewCommentCount: number;
+}): boolean {
+  return input.pendingReviewCommentCount > 0;
 }
 
 export function resolveThreadAccessoryBadges(input: {
@@ -51,6 +51,14 @@ export function resolveThreadAccessoryBadges(input: {
   }
 
   return badges;
+}
+
+export function shouldHidePhoneThreadAccessoryBar(input: {
+  readonly usesAndroidAccessoryBar: boolean;
+  readonly layout: "phone" | "rail";
+  readonly isKeyboardVisible: boolean;
+}): boolean {
+  return input.usesAndroidAccessoryBar && input.layout === "phone" && input.isKeyboardVisible;
 }
 
 export function threadAccessoryDisabledMessage(item: ThreadAccessoryItemId): string {

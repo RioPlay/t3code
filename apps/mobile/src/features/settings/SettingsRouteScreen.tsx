@@ -226,7 +226,9 @@ function ConfiguredSettingsRouteScreen() {
   const promptSignIn = useCallback(() => {
     Alert.alert(
       "Request T3 Cloud access",
-      "Live Activity updates require approved T3 Cloud access so relay can deliver updates to this device.",
+      Platform.OS === "android"
+        ? "Agent push notifications require approved T3 Cloud access so relay can deliver updates to this device."
+        : "Live Activity updates require approved T3 Cloud access so relay can deliver updates to this device.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -249,8 +251,12 @@ function ConfiguredSettingsRouteScreen() {
       setLiveActivityStatus("disabled");
       const error = squashAtomCommandFailure(tokenResult);
       Alert.alert(
-        "Live Activities unavailable",
-        error instanceof Error ? error.message : "Could not enable Live Activity updates.",
+        Platform.OS === "android" ? "Cloud linking unavailable" : "Live Activities unavailable",
+        error instanceof Error
+          ? error.message
+          : Platform.OS === "android"
+            ? "Could not link environments for push updates."
+            : "Could not enable Live Activity updates.",
       );
       return;
     }
@@ -274,8 +280,12 @@ function ConfiguredSettingsRouteScreen() {
       if (!isAtomCommandInterrupted(updateResult)) {
         const error = squashAtomCommandFailure(updateResult);
         Alert.alert(
-          "Live Activities unavailable",
-          error instanceof Error ? error.message : "Could not enable Live Activity updates.",
+          Platform.OS === "android" ? "Cloud linking unavailable" : "Live Activities unavailable",
+          error instanceof Error
+            ? error.message
+            : Platform.OS === "android"
+              ? "Could not link environments for push updates."
+              : "Could not enable Live Activity updates.",
         );
       }
       return;
@@ -284,10 +294,14 @@ function ConfiguredSettingsRouteScreen() {
     refreshManagedRelayEnvironments();
     setLiveActivityStatus("enabled");
     Alert.alert(
-      "Live Activities enabled",
+      Platform.OS === "android" ? "Cloud environments linked" : "Live Activities enabled",
       environmentCount > 0
-        ? `${environmentCount} environment${environmentCount === 1 ? "" : "s"} linked for Live Activity updates.`
-        : "Live Activity updates are enabled. Add an environment to start receiving updates.",
+        ? Platform.OS === "android"
+          ? `${environmentCount} environment${environmentCount === 1 ? "" : "s"} linked for agent push updates.`
+          : `${environmentCount} environment${environmentCount === 1 ? "" : "s"} linked for Live Activity updates.`
+        : Platform.OS === "android"
+          ? "Cloud linking is enabled. Add an environment to start receiving push updates."
+          : "Live Activity updates are enabled. Add an environment to start receiving updates.",
     );
   }, [connections, environmentCount, getToken, isSignedIn, promptSignIn]);
 

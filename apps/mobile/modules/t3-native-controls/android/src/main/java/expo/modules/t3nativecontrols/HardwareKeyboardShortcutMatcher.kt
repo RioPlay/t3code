@@ -18,6 +18,7 @@ object HardwareKeyboardShortcutMatcher {
       KeyEvent.KEYCODE_LEFT_BRACKET -> if (!shift) "back" else null
       KeyEvent.KEYCODE_T -> if (shift) "terminal" else null
       KeyEvent.KEYCODE_R -> if (shift) "review" else null
+      KeyEvent.KEYCODE_G -> if (shift) "git" else null
       KeyEvent.KEYCODE_BACKSLASH -> if (!shift) "toggleSidebar" else null
       else -> null
     }

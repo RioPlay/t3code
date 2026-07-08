@@ -1,5 +1,18 @@
-import { managedRelaySessionAtom } from "@t3tools/client-runtime/relay";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+
+vi.hoisted(() => {
+  vi.stubGlobal("__DEV__", false);
+});
+
+vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
+}));
+
+vi.mock("../maestro/maestroMode", () => ({
+  isMaestroAuthBypassEnabled: vi.fn(() => false),
+}));
+
+import { managedRelaySessionAtom } from "@t3tools/client-runtime/relay";
 
 import { appAtomRegistry } from "../../state/atom-registry";
 import { activateCloudRelayAccount, deactivateCloudRelayAccount } from "./CloudAuthProvider";

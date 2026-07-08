@@ -3,6 +3,7 @@ import {
   StackActions,
   useFocusEffect,
   useNavigation,
+  useNavigationState,
   type StaticScreenProps,
 } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -10,10 +11,10 @@ import * as Option from "effect/Option";
 import { EnvironmentId, ThreadId, type ProjectScript } from "@t3tools/contracts";
 import { projectThreadAwareness } from "@t3tools/shared/agentAwareness";
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@t3tools/shared/projectScripts";
-import { Platform, ScrollView, Text as RNText, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
+import { useKeyboardState } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceState } from "../../state/workspace";
-import { useThemeColor } from "../../lib/useThemeColor";
 import { useEnvironmentQuery } from "../../state/query";
 import { dismissGitActionResult, useGitActionProgress } from "../../state/use-vcs-action-state";
 import { vcsEnvironment } from "../../state/vcs";
@@ -22,7 +23,6 @@ import { BuildVariantBanner } from "../../components/BuildVariantBanner";
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
-import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
 import { connectionTone } from "../connection/connectionTone";
 import { navigateToEnvironmentHub } from "../environment/environmentHubNavigation";
 
@@ -53,10 +53,14 @@ import {
   useThreadGitControlModel,
   useThreadGitRightHeaderItems,
 } from "./ThreadGitControls";
+import { countReviewCommentContexts } from "../review/reviewCommentSelection";
 import {
   resolveThreadAccessoryActiveItem,
   resolveThreadAccessoryBadges,
+  resolveThreadAccessoryReviewPendingDot,
+  shouldHidePhoneThreadAccessoryBar,
   type ThreadAccessoryItemId,
+  type ThreadAccessorySurface,
 } from "./threadAccessoryBarModel";
 import { GitOverviewSheet } from "./git/GitOverviewSheet";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -210,6 +214,7 @@ function ThreadRouteContent(
   const requests = useSelectedThreadRequests();
   const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, "thread interrupt");
   const navigation = useNavigation();
+  const activeRouteName = useNavigationState((state) => state.routes[state.index]?.name ?? null);
   const params = props.route.params;
   const environmentIdRaw = firstRouteParam(params.environmentId);
   const environmentId = environmentIdRaw ? EnvironmentId.make(environmentIdRaw) : null;
@@ -219,6 +224,8 @@ function ThreadRouteContent(
   const [inspectorSelection, setInspectorSelection] = useState<ThreadInspectorSelection | null>(
     () => (props.renderInspector ? { routeThreadIdentity, mode: "route" } : null),
   );
+  const [lastAccessorySurface, setLastAccessorySurface] = useState<ThreadAccessorySurface>(null);
+  const isKeyboardVisible = useKeyboardState((state) => state.isVisible);
   const inspectorMode = (() => {
     if (inspectorSelection?.routeThreadIdentity === routeThreadIdentity) {
       if (inspectorSelection.mode === "files" && selectedThreadCwd === null) {
@@ -262,6 +269,12 @@ function ThreadRouteContent(
     });
   }, [props.renderInspector, routeThreadIdentity]);
 
+  useEffect(() => {
+    if (activeRouteName === "Thread" && inspectorMode === null) {
+      setLastAccessorySurface(null);
+    }
+  }, [activeRouteName, inspectorMode]);
+
   useFocusEffect(
     useCallback(() => {
       return () => {
@@ -291,8 +304,6 @@ function ThreadRouteContent(
     [composer.interactionMode, composer.modelSelection, composer.runtimeMode, selectedThread],
   );
 
-  /* ─── Native header theming ──────────────────────────────────────── */
-  const foregroundColor = String(useThemeColor("--color-foreground"));
   const usesNativeHeaderGlass = Platform.OS === "ios";
   const headerSubtitle = [
     selectedThreadProject?.title ?? null,
@@ -648,13 +659,39 @@ function ThreadRouteContent(
   );
   const usesAndroidAccessoryBar = Platform.OS === "android";
   const accessoryBarLayout = layout.usesSplitView ? ("rail" as const) : ("phone" as const);
+  const activeAccessorySurface = useMemo<ThreadAccessorySurface>(() => {
+    if (inspectorMode === "files" || inspectorMode === "git") {
+      return inspectorMode;
+    }
+
+    switch (activeRouteName) {
+      case "ThreadFiles":
+      case "ThreadFile":
+        return "files";
+      case "ThreadTerminal":
+        return "terminal";
+      case "ThreadReview":
+      case "ThreadReviewComment":
+        return "review";
+      case "GitOverview":
+      case "GitCommit":
+      case "GitBranches":
+      case "GitConfirm":
+        return "git";
+      default:
+        return lastAccessorySurface;
+    }
+  }, [activeRouteName, inspectorMode, lastAccessorySurface]);
   const accessoryBarActiveItem = resolveThreadAccessoryActiveItem({
-    inspectorMode: inspectorMode === "files" || inspectorMode === "git" ? inspectorMode : null,
+    activeSurface: activeAccessorySurface,
+  });
+  const reviewPendingDot = resolveThreadAccessoryReviewPendingDot({
+    pendingReviewCommentCount: countReviewCommentContexts(composer.draftMessage),
   });
   const accessoryBarBadges = resolveThreadAccessoryBadges({
     gitStatus: gitStatus.data,
     terminalSessions: terminalMenuSessions,
-    reviewPendingDot: Boolean(gitStatus.data?.hasWorkingTreeChanges),
+    reviewPendingDot,
   });
   const agentAwareness = useMemo(
     () =>
@@ -671,15 +708,19 @@ function ThreadRouteContent(
     (item: ThreadAccessoryItemId) => {
       switch (item) {
         case "files":
+          setLastAccessorySurface("files");
           threadGitModel.openFiles();
           return;
         case "terminal":
+          setLastAccessorySurface("terminal");
           handleOpenTerminal();
           return;
         case "review":
+          setLastAccessorySurface("review");
           threadGitModel.openReview();
           return;
         case "git":
+          setLastAccessorySurface("git");
           threadGitModel.openGitInspector();
           return;
       }
@@ -707,9 +748,17 @@ function ThreadRouteContent(
     threadGitModel.openReview();
     return true;
   }, [threadGitModel, usesAndroidAccessoryBar]);
+  const handleAccessoryGitCommand = useCallback(() => {
+    if (!usesAndroidAccessoryBar) {
+      return false;
+    }
+    threadGitModel.openGitInspector();
+    return true;
+  }, [threadGitModel, usesAndroidAccessoryBar]);
   useHardwareKeyboardCommand("files", handleAccessoryFilesCommand);
   useHardwareKeyboardCommand("terminal", handleAccessoryTerminalCommand);
   useHardwareKeyboardCommand("review", handleAccessoryReviewCommand);
+  useHardwareKeyboardCommand("git", handleAccessoryGitCommand);
   const accessoryBar = usesAndroidAccessoryBar ? (
     <ThreadAccessoryBar
       activeItem={accessoryBarActiveItem}
@@ -722,8 +771,13 @@ function ThreadRouteContent(
       onPressItem={handleAccessoryBarPress}
     />
   ) : null;
+  const shouldHidePhoneAccessoryBar = shouldHidePhoneThreadAccessoryBar({
+    usesAndroidAccessoryBar,
+    layout: accessoryBarLayout,
+    isKeyboardVisible,
+  });
   const accessoryBarInset = usesAndroidAccessoryBar
-    ? accessoryBarLayout === "phone"
+    ? accessoryBarLayout === "phone" && !shouldHidePhoneAccessoryBar
       ? threadAccessoryBarInsetHeight(safeAreaInsets.bottom)
       : 0
     : 0;
@@ -793,7 +847,6 @@ function ThreadRouteContent(
     return <OpeningThreadLoadingScreen />;
   }
 
-  const selectedThreadKey = scopedThreadKey(selectedThread.environmentId, selectedThread.id);
   const contentPresentation = projectThreadContentPresentation({
     hasDetail: selectedThreadDetail !== null,
     detailError: Option.getOrNull(selectedThreadDetailState.error),
@@ -828,7 +881,9 @@ function ThreadRouteContent(
       layoutVariant={layout.variant}
       usesAutomaticContentInsets={usesNativeHeaderGlass}
       agentAwareness={usesAndroidAccessoryBar ? agentAwareness : null}
-      footerChrome={accessoryBarLayout === "phone" ? accessoryBar : null}
+      footerChrome={
+        accessoryBarLayout === "phone" && !shouldHidePhoneAccessoryBar ? accessoryBar : null
+      }
       footerChromeInset={accessoryBarInset}
       onRefreshThread={handleReconnectEnvironment}
       onOpenConnectionEditor={handleOpenConnectionEditor}
