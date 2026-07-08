@@ -1,11 +1,12 @@
-import { NativeHeaderToolbar } from "../../native/StackHeader";
+import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useNavigation } from "@react-navigation/native";
 import { SymbolView } from "expo-symbols";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColor } from "../../lib/useThemeColor";
+import { HeaderIconButton } from "../../components/HeaderIconButton";
 
 import { AppText as Text } from "../../components/AppText";
 import { ProjectFavicon } from "../../components/ProjectFavicon";
@@ -114,6 +115,20 @@ export function NewTaskRouteScreen() {
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
+      <NativeStackScreenOptions
+        options={{
+          headerRight:
+            Platform.OS === "android"
+              ? () => (
+                  <HeaderIconButton
+                    accessibilityLabel="Add project"
+                    icon="plus"
+                    onPress={() => navigation.navigate("NewTaskSheet", { screen: "AddProject" })}
+                  />
+                )
+              : undefined,
+        }}
+      />
       <NativeHeaderToolbar placement="right">
         {layout.usesSplitView ? (
           <NativeHeaderToolbar.Button

@@ -13,7 +13,7 @@ import type {
   SidebarThreadSortOrder,
 } from "@t3tools/contracts";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -22,6 +22,7 @@ import {
 } from "../../lib/nativeStackInsets";
 import { useThemeColor } from "../../lib/useThemeColor";
 
+import { AppText as Text } from "../../components/AppText";
 import { BuildVariantBanner } from "../../components/BuildVariantBanner";
 import { EmptyState } from "../../components/EmptyState";
 import type { WorkspaceState } from "../../state/workspaceModel";
@@ -384,6 +385,14 @@ export function HomeScreen(props: HomeScreenProps) {
             <View className="mt-4 items-center">
               <ActivityIndicator color={accentColor} />
             </View>
+          ) : null}
+          {!emptyState.loading && props.onStartNewTask ? (
+            <Pressable
+              className="mt-4 self-center rounded-full bg-primary px-5 py-2.5 active:opacity-70"
+              onPress={props.onStartNewTask}
+            >
+              <Text className="text-sm font-t3-bold text-primary-foreground">New task</Text>
+            </Pressable>
           ) : null}
         </View>
         {connectionStatus}
