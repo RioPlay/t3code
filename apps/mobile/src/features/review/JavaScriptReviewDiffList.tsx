@@ -35,6 +35,16 @@ import {
   REVIEW_DIFF_LINE_HEIGHT,
   ReviewChangeBar,
 } from "./reviewDiffRendering";
+import {
+  buildReviewListItemOffsetStarts,
+  resolveReviewListIndexAtOffset,
+  resolveReviewListItemHeight,
+  REVIEW_FILE_HEADER_ROW_HEIGHT,
+  REVIEW_FILE_SUPPRESSED_ROW_HEIGHT,
+  REVIEW_FILE_SUPPRESSED_WITH_ACTION_ROW_HEIGHT,
+  REVIEW_HUNK_ROW_HEIGHT,
+  REVIEW_HUNK_WITH_CONTEXT_ROW_HEIGHT,
+} from "./reviewListLayout";
 import type { ReviewHighlightedToken } from "./shikiReviewHighlighter";
 import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCodeSurface";
 
@@ -124,6 +134,7 @@ const ReviewFileHeaderRow = memo(function ReviewFileHeaderRow(props: {
     <Pressable
       accessibilityRole="button"
       className="border-b border-border bg-card px-3 py-2.5"
+      style={{ height: REVIEW_FILE_HEADER_ROW_HEIGHT }}
       testID="review-diff-file-row"
       onPress={() => props.onToggleFile(file.id)}
     >
@@ -191,7 +202,7 @@ const ReviewLineRow = memo(function ReviewLineRow(props: {
       className={cn("flex-row", changeTone(props.row.change), props.selected && "bg-sky-500/10")}
       onLongPress={() => emit("longPress")}
       onPress={() => emit("tap")}
-      style={{ minHeight: REVIEW_DIFF_LINE_HEIGHT }}
+      style={{ height: REVIEW_DIFF_LINE_HEIGHT }}
     >
       <ReviewChangeBar change={props.row.change} />
       <View className="w-[52px] items-end justify-center pr-2">
@@ -238,7 +249,14 @@ function ReviewDiffListRow(props: {
       );
     case "file-suppressed":
       return (
-        <View className="border-b border-border bg-card px-4 py-4">
+        <View
+          className="border-b border-border bg-card px-4 py-4"
+          style={{
+            height: props.item.actionLabel
+              ? REVIEW_FILE_SUPPRESSED_WITH_ACTION_ROW_HEIGHT
+              : REVIEW_FILE_SUPPRESSED_ROW_HEIGHT,
+          }}
+        >
           <Text className="text-xs leading-normal text-foreground-muted">{props.item.message}</Text>
           {props.item.actionLabel ? (
             <Pressable
@@ -254,7 +272,14 @@ function ReviewDiffListRow(props: {
       );
     case "hunk":
       return (
-        <View className="bg-sky-500/10 px-3 py-1.5">
+        <View
+          className="bg-sky-500/10 px-3 py-1.5"
+          style={{
+            height: props.item.row.context
+              ? REVIEW_HUNK_WITH_CONTEXT_ROW_HEIGHT
+              : REVIEW_HUNK_ROW_HEIGHT,
+          }}
+        >
           <Text className="font-mono text-[11px] font-t3-medium text-sky-600 dark:text-sky-300">
             {props.item.row.header}
           </Text>
@@ -311,6 +336,35 @@ export const JavaScriptReviewDiffList = forwardRef(function JavaScriptReviewDiff
     return map;
   }, [listItems]);
 
+  const listItemOffsetStarts = useMemo(
+    () => buildReviewListItemOffsetStarts(listItems, rowHeight),
+    [listItems, rowHeight],
+  );
+
+  const getFixedItemSize = useCallback(
+    (item: ReviewListItem) => resolveReviewListItemHeight(item, rowHeight),
+    [rowHeight],
+  );
+
+  const itemsAreEqual = useCallback((previous: ReviewListItem, next: ReviewListItem) => {
+    if (previous.id !== next.id || previous.kind !== next.kind) {
+      return false;
+    }
+    if (previous.kind === "file-header" && next.kind === "file-header") {
+      return previous.expanded === next.expanded;
+    }
+    return true;
+  }, []);
+
+  const maintainVisibleContentPosition = useMemo(
+    () => ({
+      data: true,
+      size: true,
+      shouldRestorePosition: (item: ReviewListItem) => item.kind === "file-header",
+    }),
+    [],
+  );
+
   const tokensByNativeRowId = useMemo(
     () => parseTokensByRenderableRowId(props.tokensPatchJson),
     [props.tokensPatchJson],
@@ -356,14 +410,21 @@ export const JavaScriptReviewDiffList = forwardRef(function JavaScriptReviewDiff
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
-      const firstRowIndex = Math.max(0, Math.floor(offsetY / rowHeight));
-      const visibleCount = Math.ceil(event.nativeEvent.layoutMeasurement.height / rowHeight) + 4;
+      const firstRowIndex = resolveReviewListIndexAtOffset(listItemOffsetStarts, offsetY);
+      const viewportEnd = offsetY + event.nativeEvent.layoutMeasurement.height + rowHeight * 4;
+      let lastRowIndex = firstRowIndex;
+      for (let index = firstRowIndex; index < listItemOffsetStarts.length; index += 1) {
+        if (listItemOffsetStarts[index] > viewportEnd) {
+          break;
+        }
+        lastRowIndex = index;
+      }
       props.onUpdateVisibleRange({
         firstRowIndex,
-        lastRowIndex: Math.min(props.nativeData.rows.length - 1, firstRowIndex + visibleCount),
+        lastRowIndex: Math.min(props.nativeData.rows.length - 1, lastRowIndex),
       });
     },
-    [props.nativeData.rows.length, props.onUpdateVisibleRange, rowHeight],
+    [listItemOffsetStarts, props.nativeData.rows.length, props.onUpdateVisibleRange, rowHeight],
   );
 
   const handleViewableItemsChanged = useCallback(
@@ -417,8 +478,11 @@ export const JavaScriptReviewDiffList = forwardRef(function JavaScriptReviewDiff
       drawDistance={500}
       estimatedItemSize={rowHeight}
       extraData={extraData}
+      getFixedItemSize={getFixedItemSize}
       getItemType={(item) => item.kind}
+      itemsAreEqual={itemsAreEqual}
       keyExtractor={(item) => item.id}
+      maintainVisibleContentPosition={maintainVisibleContentPosition}
       recycleItems
       renderItem={renderItem}
       ListHeaderComponent={props.ListHeaderComponent}
