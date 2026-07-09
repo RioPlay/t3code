@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { loadPreferences, savePreferencesPatch } from "./storage";
+import { loadPreferences, savePreferencesPatch } from "../persistence/imperative";
 
 export function useComposerStripCoachMark(enabled: boolean) {
   const [coachResolved, setCoachResolved] = useState(!enabled);

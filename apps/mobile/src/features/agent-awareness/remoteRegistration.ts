@@ -23,7 +23,7 @@ import {
   loadAgentAwarenessDeviceId,
   loadOrCreateAgentAwarenessDeviceId,
   loadPreferences,
-} from "../../lib/storage";
+} from "../../persistence/imperative";
 import AgentActivity, { type AgentActivityProps } from "../../widgets/AgentActivity";
 import { resolveCloudPublicConfig } from "../cloud/publicConfig";
 import { makeRelayDeviceRegistrationRequest } from "./registrationPayload";

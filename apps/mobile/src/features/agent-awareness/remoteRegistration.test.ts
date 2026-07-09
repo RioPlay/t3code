@@ -120,7 +120,7 @@ vi.mock("../../lib/runtime", () => ({
   },
 }));
 
-vi.mock("../../lib/storage", () => ({
+vi.mock("../../persistence/imperative", () => ({
   loadAgentAwarenessDeviceId: vi.fn(() => Promise.resolve("device-1")),
   loadOrCreateAgentAwarenessDeviceId: vi.fn(() => Promise.resolve("device-1")),
   loadPreferences: vi.fn(() => Promise.resolve({})),

@@ -25,6 +25,8 @@ export const relayMobileDevices = pgTable(
     iosMajorVersion: integer("ios_major_version"),
     androidSdkVersion: integer("android_sdk_version"),
     appVersion: varchar("app_version", { length: 64 }),
+    bundleId: varchar("bundle_id", { length: 255 }),
+    apsEnvironment: varchar("aps_environment", { length: 16 }).$type<"sandbox" | "production">(),
     pushToken: text("push_token"),
     pushToStartToken: text("push_to_start_token"),
     preferencesJson: jsonb("preferences_json").notNull().$type<RelayAgentAwarenessPreferences>(),

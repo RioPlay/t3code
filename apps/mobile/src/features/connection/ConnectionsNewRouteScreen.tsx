@@ -10,14 +10,9 @@ import { useThemeColor } from "../../lib/useThemeColor";
 import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ConnectionSheetButton } from "./ConnectionSheetButton";
-import { DiscoveredLanEnvironmentList } from "./DiscoveredLanEnvironmentList";
 import { extractPairingUrlFromQrPayload } from "./pairing";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { buildPairingUrl, parsePairingUrl } from "./pairing";
-import {
-  useLanDiscoveryController,
-  type DiscoveredLanEnvironmentView,
-} from "./useLanDiscoveryController";
 
 type ConnectionsNewRouteParams = {
   readonly mode?: string;
@@ -37,15 +32,12 @@ export function ConnectionsNewRouteScreen({
   const insets = useSafeAreaInsets();
   const [hostInput, setHostInput] = useState("");
   const [codeInput, setCodeInput] = useState("");
-  const [selectedLanEnvironmentKey, setSelectedLanEnvironmentKey] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showScanner, setShowScanner] = useState(params.mode === "scan_qr");
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [scannerLocked, setScannerLocked] = useState(false);
-  const lanDiscovery = useLanDiscoveryController(!showScanner);
 
   const headerIconColor = useThemeColor("--color-icon");
-  const placeholderColor = useThemeColor("--color-placeholder");
 
   const connectDisabled = isSubmitting || hostInput.trim().length === 0;
 
@@ -62,12 +54,10 @@ export function ConnectionsNewRouteScreen({
   }, [pairingConnectionError]);
 
   const handleHostChange = useCallback((value: string) => {
-    setSelectedLanEnvironmentKey(null);
     setHostInput(value);
   }, []);
 
   const handleCodeChange = useCallback((value: string) => {
-    setSelectedLanEnvironmentKey(null);
     setCodeInput(value);
   }, []);
 
@@ -107,7 +97,6 @@ export function ConnectionsNewRouteScreen({
       try {
         const pairingUrl = extractPairingUrlFromQrPayload(data);
         const { host, code } = parsePairingUrl(pairingUrl);
-        setSelectedLanEnvironmentKey(null);
         setHostInput(host);
         setCodeInput(code);
         onChangeConnectionPairingUrl(pairingUrl);
@@ -124,21 +113,6 @@ export function ConnectionsNewRouteScreen({
       }
     },
     [onChangeConnectionPairingUrl, scannerLocked],
-  );
-
-  const handleLanEnvironmentSelect = useCallback(
-    (environment: DiscoveredLanEnvironmentView) => {
-      if (environment.status !== "available") {
-        return;
-      }
-
-      const host = environment.httpBaseUrl.replace(/\/$/u, "");
-      setSelectedLanEnvironmentKey(environment.key);
-      setHostInput(environment.hostInput);
-      setCodeInput("");
-      onChangeConnectionPairingUrl(buildPairingUrl(host, ""));
-    },
-    [onChangeConnectionPairingUrl],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -159,7 +133,7 @@ export function ConnectionsNewRouteScreen({
   }, [codeInput, hostInput, onChangeConnectionPairingUrl, onConnectPress, navigation]);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet" testID="connections-new-screen">
+    <View collapsable={false} className="flex-1 bg-sheet">
       <NativeStackScreenOptions
         options={{
           title: showScanner ? "Scan QR Code" : "Add Environment",
@@ -167,7 +141,6 @@ export function ConnectionsNewRouteScreen({
       />
       <NativeHeaderToolbar placement="right">
         <NativeHeaderToolbar.Button
-          accessibilityLabel={showScanner ? "Close QR scanner" : "Scan pairing QR code"}
           icon={showScanner ? "xmark" : "qrcode.viewfinder"}
           onPress={() => {
             if (showScanner) {
@@ -184,7 +157,7 @@ export function ConnectionsNewRouteScreen({
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1 }}
+        className="flex-1"
         contentInset={{ bottom: Math.max(insets.bottom, 18) + 18 }}
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -194,10 +167,7 @@ export function ConnectionsNewRouteScreen({
         <View collapsable={false} className="gap-5">
           {showScanner ? (
             cameraPermission?.granted ? (
-              <View
-                className="overflow-hidden rounded-[24px]"
-                style={{ borderCurve: "continuous" }}
-              >
+              <View className="overflow-hidden rounded-[24px] border-continuous">
                 <CameraView
                   barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                   onBarcodeScanned={handleQrScan}
@@ -205,10 +175,7 @@ export function ConnectionsNewRouteScreen({
                 />
               </View>
             ) : (
-              <View
-                className="items-center gap-3 rounded-[24px] bg-card px-5 py-8"
-                style={{ borderCurve: "continuous" }}
-              >
+              <View className="items-center gap-3 rounded-[24px] border-continuous bg-card px-5 py-8">
                 <Text className="text-center text-sm leading-normal text-foreground-muted">
                   Camera permission is required to scan a QR code.
                 </Text>
@@ -224,67 +191,48 @@ export function ConnectionsNewRouteScreen({
               </View>
             )
           ) : (
-            <>
-              <DiscoveredLanEnvironmentList
-                environments={lanDiscovery.environments}
-                isOffline={lanDiscovery.isOffline}
-                isScanning={lanDiscovery.isScanning}
-                onRefresh={lanDiscovery.refresh}
-                onSelect={handleLanEnvironmentSelect}
-                selectedEnvironmentKey={selectedLanEnvironmentKey}
-              />
-
-              <View collapsable={false} className="gap-4 rounded-[24px] bg-card p-4">
-                <View collapsable={false} className="gap-1.5">
-                  <Text
-                    className="text-2xs font-t3-bold uppercase text-foreground-muted"
-                    style={{ letterSpacing: 0.8 }}
-                  >
-                    Host
-                  </Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    placeholder="192.168.1.100:8080"
-                    placeholderTextColor={placeholderColor}
-                    value={hostInput}
-                    onChangeText={handleHostChange}
-                    className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
-                  />
-                </View>
-
-                <View collapsable={false} className="gap-1.5">
-                  <Text
-                    className="text-2xs font-t3-bold uppercase text-foreground-muted"
-                    style={{ letterSpacing: 0.8 }}
-                  >
-                    Pairing code
-                  </Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    placeholder="abc-123-xyz"
-                    placeholderTextColor={placeholderColor}
-                    value={codeInput}
-                    onChangeText={handleCodeChange}
-                    className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
-                  />
-                </View>
-
-                {pairingConnectionError ? <ErrorBanner message={pairingConnectionError} /> : null}
-
-                <ConnectionSheetButton
-                  icon="plus"
-                  label={isSubmitting ? "Pairing..." : "Add environment"}
-                  disabled={connectDisabled}
-                  tone="primary"
-                  onPress={() => {
-                    void handleSubmit();
-                  }}
+            <View collapsable={false} className="gap-4 rounded-[24px] bg-card p-4">
+              <View collapsable={false} className="gap-1.5">
+                <Text className="text-2xs font-t3-bold tracking-[0.8px] uppercase text-foreground-muted">
+                  Host
+                </Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  placeholder="192.168.1.100:8080"
+                  value={hostInput}
+                  onChangeText={handleHostChange}
+                  className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
                 />
               </View>
-            </>
+
+              <View collapsable={false} className="gap-1.5">
+                <Text className="text-2xs font-t3-bold tracking-[0.8px] uppercase text-foreground-muted">
+                  Pairing code
+                </Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholder="abc-123-xyz"
+                  value={codeInput}
+                  onChangeText={handleCodeChange}
+                  className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
+                />
+              </View>
+
+              {pairingConnectionError ? <ErrorBanner message={pairingConnectionError} /> : null}
+
+              <ConnectionSheetButton
+                icon="plus"
+                label={isSubmitting ? "Pairing..." : "Add environment"}
+                disabled={connectDisabled}
+                tone="primary"
+                onPress={() => {
+                  void handleSubmit();
+                }}
+              />
+            </View>
           )}
         </View>
       </ScrollView>

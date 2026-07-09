@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import { activateCloudRelayAccount } from "../cloud/CloudAuthProvider";
 import { CONNECTION_CATALOG_KEY } from "../../connection/catalog-store";
 import type { SavedRemoteConnection } from "../../lib/connection";
-import { replaceSavedConnections } from "../../lib/storage";
+import { replaceSavedConnections } from "../../persistence/imperative";
 import { buildMaestroShellSnapshot, MAESTRO_FIXTURE_ENVIRONMENT_ID } from "./maestroFixture";
 import { isMaestroAuthBypassEnabled } from "./maestroMode";
 

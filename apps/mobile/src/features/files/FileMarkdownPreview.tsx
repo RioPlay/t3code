@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Markdown,
+  type CustomRenderers,
   type NodeStyleOverrides,
   type PartialMarkdownTheme,
 } from "react-native-nitro-markdown";
-import { RefreshControl, ScrollView, useColorScheme, View } from "react-native";
+import { RefreshControl, ScrollView, Text as NativeText, View } from "react-native";
 
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
+import { useFontFamily } from "../../lib/useFontFamily";
 import {
   resolveMarkdownFontSizes,
   resolveNativeMarkdownTypography,
@@ -18,21 +20,15 @@ import {
   SelectableMarkdownText,
   type NativeMarkdownTextStyle,
 } from "../../native/SelectableMarkdownText";
-import { shouldUseNitroMarkdown } from "../../platform/capabilities";
-import {
-  createNitroMarkdownRenderers,
-  resolveMarkdownTableThemeColors,
-} from "@t3tools/mobile-markdown-text";
 
 interface MarkdownPreviewStyles {
   readonly theme: PartialMarkdownTheme;
   readonly styles: NodeStyleOverrides;
-  readonly renderers: ReturnType<typeof createNitroMarkdownRenderers>;
+  readonly renderers: CustomRenderers;
   readonly nativeTextStyle: NativeMarkdownTextStyle;
 }
 
-function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): MarkdownPreviewStyles {
-  const colorScheme = useColorScheme();
+function useMarkdownPreviewStyles(): MarkdownPreviewStyles {
   const { appearance } = useAppearancePreferences();
   const markdownFontSizes = useMemo(
     () => resolveMarkdownFontSizes(appearance.baseFontSize),
@@ -50,28 +46,29 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
   const codeBackground = String(useThemeColor("--color-md-code-bg"));
   const codeText = String(useThemeColor("--color-md-code-text"));
   const horizontalRule = String(useThemeColor("--color-md-hr"));
-  const skillText = String(useThemeColor("--color-inline-skill-foreground"));
+  const regularFontFamily = useFontFamily("regular");
+  const mediumFontFamily = useFontFamily("medium");
+  const boldFontFamily = useFontFamily("bold");
 
   return useMemo(() => {
-    const tableTheme = resolveMarkdownTableThemeColors({
-      isDark: colorScheme === "dark",
-      strong,
-      blockquoteBackground,
-      horizontalRule,
-    });
-    const renderers = createNitroMarkdownRenderers({
-      onLinkPress,
-      inlineTextColor: body,
-      inlineCodeTextColor: codeText,
-      blockBackgroundColor: codeBackground,
-      blockTextColor: codeText,
-      markdownLinkColor: link,
-      markdownBodyColor: body,
-      markdownHrColor: horizontalRule,
-      skillTextColor: skillText,
-      markdownFontSizes,
-      tableTheme,
-    });
+    const renderers: CustomRenderers = {
+      link: ({ href, children }) => (
+        <NativeText
+          className="font-t3-medium"
+          onPress={() => {
+            if (href) {
+              void tryOpenExternalUrl(href, "markdown-link");
+            }
+          }}
+          style={{
+            color: link,
+            textDecorationLine: "none",
+          }}
+        >
+          {children}
+        </NativeText>
+      ),
+    };
 
     return {
       theme: {
@@ -81,15 +78,11 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
           link,
           blockquote: blockquoteBorder,
           border: horizontalRule,
-          surface: tableTheme.surface,
-          surfaceLight: tableTheme.surfaceLight,
-          textMuted: tableTheme.textMuted,
+          surfaceLight: blockquoteBackground,
           accent: link,
-          tableBorder: tableTheme.tableBorder,
-          tableHeader: tableTheme.tableHeader,
-          tableHeaderText: tableTheme.tableHeaderText,
-          tableRowOdd: tableTheme.tableRowOdd,
-          tableRowEven: tableTheme.tableRowEven,
+          tableBorder: horizontalRule,
+          tableHeader: blockquoteBackground,
+          tableHeaderText: strong,
           code: codeText,
           codeBackground,
         },
@@ -97,21 +90,21 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
       styles: {
         text: {
           color: body,
-          fontFamily: "DMSans_400Regular",
+          fontFamily: regularFontFamily,
           fontSize: markdownFontSizes.m,
           lineHeight: markdownFontSizes.bodyLineHeight,
         },
         heading: {
           color: strong,
-          fontFamily: "DMSans_700Bold",
+          fontFamily: boldFontFamily,
         },
         strong: {
           color: strong,
-          fontFamily: "DMSans_700Bold",
+          fontFamily: boldFontFamily,
         },
         link: {
           color: link,
-          fontFamily: "DMSans_500Medium",
+          fontFamily: mediumFontFamily,
         },
         blockquote: {
           backgroundColor: blockquoteBackground,
@@ -146,17 +139,15 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
         codeBackgroundColor: codeBackground,
         codeBlockBackgroundColor: codeBackground,
         fileTextColor: codeText,
-        skillTextColor: skillText,
+        skillTextColor: codeText,
         quoteMarkerColor: blockquoteBorder,
         dividerColor: horizontalRule,
-        tableSurfaceColor: tableTheme.surface,
-        tableRowAltColor: tableTheme.tableRowEven,
         fontSize: nativeMarkdownTypography.fontSize,
         lineHeight: nativeMarkdownTypography.lineHeight,
         headingFontSizes: nativeMarkdownTypography.headingFontSizes,
-        fontFamily: "DMSans_400Regular",
-        headingFontFamily: "DMSans_700Bold",
-        boldFontFamily: "DMSans_700Bold",
+        fontFamily: regularFontFamily,
+        headingFontFamily: boldFontFamily,
+        boldFontFamily,
       },
     };
   }, [
@@ -165,14 +156,14 @@ function useMarkdownPreviewStyles(onLinkPress: (href: string) => void): Markdown
     body,
     codeBackground,
     codeText,
-    colorScheme,
     horizontalRule,
     link,
     markdownFontSizes,
+    mediumFontFamily,
     nativeMarkdownTypography,
-    onLinkPress,
-    skillText,
+    regularFontFamily,
     strong,
+    boldFontFamily,
   ]);
 }
 
@@ -192,10 +183,10 @@ export function FileMarkdownPreview(props: {
       setIsPullRefreshing(false);
     }
   }, [props.onRefresh]);
+  const styles = useMarkdownPreviewStyles();
   const onLinkPress = useCallback((href: string) => {
     void tryOpenExternalUrl(href, "markdown-link");
   }, []);
-  const styles = useMarkdownPreviewStyles(onLinkPress);
 
   return (
     <ScrollView
@@ -217,7 +208,7 @@ export function FileMarkdownPreview(props: {
             onLinkPress={onLinkPress}
             textStyle={styles.nativeTextStyle}
           />
-        ) : shouldUseNitroMarkdown() ? (
+        ) : (
           <Markdown
             options={{ gfm: true }}
             renderers={styles.renderers}
@@ -226,7 +217,7 @@ export function FileMarkdownPreview(props: {
           >
             {props.markdown}
           </Markdown>
-        ) : null}
+        )}
       </View>
     </ScrollView>
   );
