@@ -58,6 +58,8 @@ export function makeRelayDeviceRegistrationRequest(input: {
   readonly iosMajorVersion?: number;
   readonly androidSdkVersion?: number;
   readonly appVersion?: string;
+  readonly bundleId?: string;
+  readonly apsEnvironment?: "sandbox" | "production";
   readonly pushToken?: string;
   readonly pushToStartToken?: string;
   readonly notificationsEnabled: boolean;

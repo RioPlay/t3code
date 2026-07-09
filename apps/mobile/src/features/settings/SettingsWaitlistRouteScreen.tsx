@@ -3,6 +3,7 @@ import { StackActions, useFocusEffect, useNavigation } from "@react-navigation/n
 import { useCallback } from "react";
 import { ScrollView } from "react-native";
 
+import { navigateNestedScreen } from "../../lib/nestedStackNavigation";
 import { CloudWaitlistEnrollment } from "../cloud/CloudWaitlistEnrollment";
 import { useClerkSettingsSheetDetent } from "../cloud/ClerkSettingsSheetDetent";
 import { hasCloudPublicConfig } from "../cloud/publicConfig";
@@ -51,7 +52,7 @@ function ConfiguredSettingsWaitlistRouteScreen() {
         <CloudWaitlistEnrollment
           onSignIn={() => {
             expand();
-            navigation.navigate("SettingsSheet", { screen: "SettingsAuth" });
+            navigateNestedScreen(navigation, "SettingsAuth");
           }}
         />
       </ScrollView>

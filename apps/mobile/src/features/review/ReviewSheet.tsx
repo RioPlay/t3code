@@ -1,4 +1,5 @@
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import type { MenuAction } from "@react-native-menu/menu";
 import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import {
   NativeHeaderToolbar,
@@ -6,7 +7,6 @@ import {
   nativeHeaderScrollEdgeEffects,
 } from "../../native/StackHeader";
 import { Screen, ScreenStack, ScreenStackHeaderConfig } from "react-native-screens";
-import { SymbolView } from "expo-symbols";
 import {
   memo,
   type Ref,
@@ -32,18 +32,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
+import { SymbolView } from "../../components/AppSymbol";
+import { AndroidHeaderIconButton, AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { ControlPillMenu } from "../../components/ControlPill";
 import { environmentCatalog } from "../../connection/catalog";
 import { useEnvironmentPresentation } from "../../state/presentation";
 import { useAtomCommand } from "../../state/use-atom-command";
-import {
-  nativeStackScrollIndicatorTopInset,
-  nativeStackTopScrollInset,
-  usesNativeStackAutomaticScrollInsets,
-} from "../../lib/nativeStackInsets";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useThreadDraftForThread } from "../../state/use-thread-composer-state";
 import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
-import { navigateToEnvironmentHub } from "../environment/environmentHubNavigation";
 import {
   useAdaptiveWorkspaceLayout,
   useAdaptiveWorkspacePaneRole,
@@ -57,14 +54,11 @@ import { useThreadSelection } from "../../state/use-thread-selection";
 import { vcsEnvironment } from "../../state/vcs";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
 import { ThreadGitMenu } from "../threads/ThreadGitControls";
+import { useReviewCacheForThread } from "./reviewState";
 import {
-  JavaScriptReviewDiffList,
-  type JavaScriptReviewDiffListHandle,
-} from "./JavaScriptReviewDiffList";
-import { toggleReviewFileId } from "./reviewFileVisibility";
-import { updateReviewRevealedLargeFileIds, useReviewCacheForThread } from "./reviewState";
-import { type NativeReviewDiffViewHandle } from "../diffs/nativeReviewDiffSurface";
-import { resolveCapabilityGatedReviewDiffView } from "../../platform/capabilities";
+  type NativeReviewDiffViewHandle,
+  resolveNativeReviewDiffView,
+} from "../diffs/nativeReviewDiffSurface";
 import { NATIVE_REVIEW_DIFF_CONTENT_WIDTH } from "./nativeReviewDiffAdapter";
 import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCodeSurface";
 import { useReviewDiffData } from "./useReviewDiffData";
@@ -76,6 +70,7 @@ import { useReviewCommentSelectionController } from "./useReviewCommentSelection
 import { resolveReviewAvailability } from "./reviewAvailability";
 import { resolveSelectedReviewFileId } from "./reviewPaneSelection";
 import { buildReviewSectionMenu } from "./review-section-menu";
+import type { ReviewSectionItem } from "./reviewModel";
 
 const REVIEW_HEADER_SPACING = 0;
 
@@ -279,13 +274,9 @@ function ReviewFileNavigator({
         // The nested native header is translucent; start the list below it so
         // the scroll-edge effect can sample the content (same treatment as
         // FileTreeBrowser in the Files pane).
-        paddingTop: nativeStackTopScrollInset(insets, { extra: 8 }),
+        paddingTop: Platform.OS === "ios" ? insets.top + 44 + 8 : 8,
       }}
-      scrollIndicatorInsets={
-        usesNativeStackAutomaticScrollInsets()
-          ? { top: nativeStackScrollIndicatorTopInset(insets) }
-          : undefined
-      }
+      scrollIndicatorInsets={Platform.OS === "ios" ? { top: insets.top + 44 } : undefined}
       renderItem={renderFile}
     />
   );
@@ -343,6 +334,7 @@ type ReviewSheetProps = StaticScreenProps<{
 }>;
 
 export function ReviewSheet(props: ReviewSheetProps) {
+  const isAndroid = Platform.OS === "android";
   const { nativeReviewDiffStyle } = useAppearanceCodeSurface();
   useAdaptiveWorkspacePaneRole("inspector");
   const { panes, showAuxiliaryPane, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
@@ -375,7 +367,8 @@ export function ReviewSheet(props: ReviewSheetProps) {
     selectedThread !== null && String(selectedThread.id) === String(threadId);
   const selectedTheme = colorScheme === "dark" ? "dark" : "light";
   // With a solid (non-overlay) header the content lays out below the header
-  // natively, so no manual top inset is needed.
+  // natively, so no manual top inset is needed. (Android renders its own
+  // in-flow AndroidScreenHeader, so it needs no inset either.)
   const topContentInset = 0;
 
   useEffect(() => {
@@ -399,9 +392,8 @@ export function ReviewSheet(props: ReviewSheetProps) {
       selectedSection,
       draftMessage,
     });
-  const NativeReviewDiffView = resolveCapabilityGatedReviewDiffView();
+  const NativeReviewDiffView = resolveNativeReviewDiffView()!;
   const nativeReviewDiffViewRef = useRef<NativeReviewDiffViewHandle>(null);
-  const jsReviewDiffListRef = useRef<JavaScriptReviewDiffListHandle>(null);
   // Native pull-to-refresh on the diff surface (replaces the old Refresh menu item).
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const handlePullToRefresh = useCallback(async () => {
@@ -425,12 +417,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
       ? reviewCache.viewedFileIdsBySection[selectedSection.id]
       : undefined,
   });
-  const { collapsedFileIds, expandedFileIds, toggleExpandedFile, toggleViewedFile, viewedFileIds } =
-    fileVisibility;
-  const revealedLargeFileIds =
-    selectedSection?.id && reviewCache.threadKey
-      ? (reviewCache.revealedLargeFileIdsBySection[selectedSection.id] ?? [])
-      : [];
+  const { collapsedFileIds, toggleExpandedFile, toggleViewedFile, viewedFileIds } = fileVisibility;
   const commentSelection = useReviewCommentSelectionController({
     environmentId,
     threadId,
@@ -455,30 +442,15 @@ export function ReviewSheet(props: ReviewSheetProps) {
       if (fileId !== null && collapsedFileIds.includes(fileId)) {
         toggleExpandedFile(fileId);
       }
-      const navigator = NativeReviewDiffView
-        ? nativeReviewDiffViewRef.current
-        : jsReviewDiffListRef.current;
       const navigation =
-        fileId === null ? navigator?.scrollToTop(true) : navigator?.scrollToFile(fileId, true);
+        fileId === null
+          ? nativeReviewDiffViewRef.current?.scrollToTop(true)
+          : nativeReviewDiffViewRef.current?.scrollToFile(fileId, true);
       void navigation?.catch((error: unknown) => {
         console.error("[review] Failed to navigate to diff file", error);
       });
     },
-    [NativeReviewDiffView, collapsedFileIds, commentSelection, toggleExpandedFile],
-  );
-  const handleJsVisibleFileChange = useCallback((fileId: string | null) => {
-    reviewFileNavigatorRef.current?.setVisibleFile(fileId);
-  }, []);
-  const handleRevealLargeFile = useCallback(
-    (fileId: string) => {
-      if (!reviewCache.threadKey || !selectedSection?.id) {
-        return;
-      }
-      updateReviewRevealedLargeFileIds(reviewCache.threadKey, selectedSection.id, (existing) =>
-        toggleReviewFileId(existing ?? [], fileId),
-      );
-    },
-    [reviewCache.threadKey, selectedSection?.id],
+    [collapsedFileIds, commentSelection, toggleExpandedFile],
   );
   const handleVisibleFileChange = useCallback(
     (event: NativeSyntheticEvent<{ readonly fileId?: string | null }>) => {
@@ -532,6 +504,52 @@ export function ReviewSheet(props: ReviewSheetProps) {
     hasCachedSelectedDiff,
     hasAnyCachedDiff,
   });
+  const androidSectionMenuActions = useMemo<MenuAction[]>(() => {
+    const sectionAction = (section: ReviewSectionItem | null, title: string): MenuAction => ({
+      id: section ? `section:${section.id}` : `unavailable:${title}`,
+      title: section?.id === selectedSection?.id ? `${title} (selected)` : title,
+      attributes: section ? undefined : { disabled: true },
+    });
+    const actions: MenuAction[] = [
+      sectionAction(sectionMenu.workingTree, "Working tree"),
+      sectionAction(sectionMenu.branchChanges, "Branch changes"),
+      sectionAction(sectionMenu.latestTurn, "Latest turn"),
+    ];
+
+    if (sectionMenu.turns.length > 0) {
+      actions.push({
+        id: "turns",
+        title: "Turn",
+        subactions: sectionMenu.turns.map((section) => ({
+          id: `section:${section.id}`,
+          title: section.id === selectedSection?.id ? `${section.title} (selected)` : section.title,
+          subtitle: section.subtitle ?? undefined,
+        })),
+      });
+    }
+
+    // The Android native diff surface has no pull-to-refresh, so refresh
+    // stays a menu action there (iOS refreshes via pull-to-refresh instead).
+    actions.push({
+      id: "refresh",
+      title: "Refresh current diff",
+      attributes: {
+        disabled: !selectedSection || selectedSection.isLoading,
+      },
+    });
+    return actions;
+  }, [sectionMenu, selectedSection]);
+  const handleAndroidSectionMenuAction = useCallback(
+    (event: { nativeEvent: { event: string } }) => {
+      const id = event.nativeEvent.event;
+      if (id === "refresh") {
+        void refreshSelectedSection();
+      } else if (id.startsWith("section:")) {
+        selectSection(id.slice("section:".length));
+      }
+    },
+    [refreshSelectedSection, selectSection],
+  );
   const handleRetryEnvironment = useCallback(() => {
     void retryEnvironment(environmentId);
   }, [environmentId, retryEnvironment]);
@@ -545,6 +563,13 @@ export function ReviewSheet(props: ReviewSheetProps) {
       threadId: String(threadId),
     });
   }, [environmentId, navigation, threadId]);
+  const androidHeaderSubtitle = [
+    selectedSection?.title,
+    headerDiffSummary.additions,
+    headerDiffSummary.deletions,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
 
   // The changed-files navigator lives in the workspace inspector column —
   // the single right-hand pane per route — instead of an in-screen panel.
@@ -588,17 +613,44 @@ export function ReviewSheet(props: ReviewSheetProps) {
   return (
     <>
       <NativeStackScreenOptions
-        options={{
-          // Static header config lives in Stack.tsx (SOLID_HEADER_OPTIONS — the native
-          // diff scrolls internally, nothing for glass to sample). Only dynamic values
-          // here.
-          headerTintColor: headerIcon,
-          headerTitle: headerTitleText,
-          title: headerTitleText,
-          unstable_headerSubtitle:
-            Platform.OS === "ios" && headerSubtitle.length > 0 ? headerSubtitle : undefined,
-        }}
+        options={
+          isAndroid
+            ? // Android draws its own in-flow header (AndroidScreenHeader below).
+              { headerShown: false }
+            : {
+                // Static header config lives in Stack.tsx (SOLID_HEADER_OPTIONS — the native
+                // diff scrolls internally, nothing for glass to sample). Only dynamic values
+                // here.
+                headerTintColor: headerIcon,
+                headerTitle: headerTitleText,
+                title: headerTitleText,
+                unstable_headerSubtitle:
+                  Platform.OS === "ios" && headerSubtitle.length > 0 ? headerSubtitle : undefined,
+              }
+        }
       />
+
+      {isAndroid ? (
+        <AndroidScreenHeader
+          title="Review changes"
+          subtitle={androidHeaderSubtitle || "Select a diff"}
+          onBack={handleReturnToThread}
+          trailing={
+            showSectionToolbar ? (
+              <ControlPillMenu
+                actions={androidSectionMenuActions}
+                isAnchoredToRight
+                onPressAction={handleAndroidSectionMenuAction}
+              >
+                <AndroidHeaderIconButton
+                  accessibilityLabel="Select review diff"
+                  icon="ellipsis.circle"
+                />
+              </ControlPillMenu>
+            ) : null
+          }
+        />
+      ) : null}
 
       <WorkspaceSidebarToolbar>
         <NativeHeaderToolbar.Button
@@ -608,7 +660,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
         />
       </WorkspaceSidebarToolbar>
 
-      {showSectionToolbar || panes.supportsAuxiliaryPane || gitMenuAvailable ? (
+      {!isAndroid && (showSectionToolbar || panes.supportsAuxiliaryPane || gitMenuAvailable) ? (
         <NativeHeaderToolbar placement="right">
           {panes.supportsAuxiliaryPane ? (
             <NativeHeaderToolbar.Button
@@ -687,7 +739,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
         </NativeHeaderToolbar>
       ) : null}
 
-      <View className="flex-1 bg-sheet" testID="review-sheet">
+      <View className="flex-1 bg-sheet">
         {showConnectionNotice ? (
           <View className="flex-1" style={{ paddingTop: topContentInset }}>
             <EnvironmentConnectionNotice
@@ -701,10 +753,9 @@ export function ReviewSheet(props: ReviewSheetProps) {
               }
               resourceName="review"
               onRetry={handleRetryEnvironment}
-              onManageEnvironments={() => navigateToEnvironmentHub(navigation)}
             />
           </View>
-        ) : selectedSection && parsedDiff.kind === "files" && NativeReviewDiffView ? (
+        ) : selectedSection && parsedDiff.kind === "files" ? (
           <View
             className="flex-1"
             style={{
@@ -746,36 +797,6 @@ export function ReviewSheet(props: ReviewSheetProps) {
                 />
               </View>
             </View>
-          </View>
-        ) : selectedSection && parsedDiff.kind === "files" ? (
-          <View
-            className="flex-1"
-            style={{
-              backgroundColor: nativeBridge.theme.background,
-              paddingTop: topContentInset + REVIEW_HEADER_SPACING,
-            }}
-          >
-            <JavaScriptReviewDiffList
-              ref={jsReviewDiffListRef}
-              backgroundColor={nativeBridge.theme.background}
-              contentResetKey={`${reviewCache.threadKey}:${selectedSection.id}`}
-              expandedFileIds={expandedFileIds}
-              files={reviewFiles}
-              ListHeaderComponent={listHeader}
-              nativeData={nativeReviewDiffData}
-              onPressLine={commentSelection.onPressLine}
-              onPullToRefresh={() => void handlePullToRefresh()}
-              onRevealLargeFile={handleRevealLargeFile}
-              onToggleFile={toggleExpandedFile}
-              onToggleViewedFile={toggleViewedFile}
-              onUpdateVisibleRange={nativeBridge.updateVisibleRange}
-              onVisibleFileChange={handleJsVisibleFileChange}
-              refreshing={isPullRefreshing}
-              revealedLargeFileIds={revealedLargeFileIds}
-              selectedRowIds={commentSelection.selectedRowIds}
-              tokensPatchJson={nativeBridge.tokensPatchJson}
-              viewedFileIds={viewedFileIds}
-            />
           </View>
         ) : (
           <ScrollView

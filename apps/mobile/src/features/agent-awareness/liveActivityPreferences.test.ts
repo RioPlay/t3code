@@ -53,6 +53,7 @@ const testLayer = Layer.mergeAll(
     MobileStorage,
     MobileStorage.of({
       loadSavedConnections: Effect.succeed([]),
+      replaceSavedConnections: () => Effect.void,
       saveConnection: () => Effect.void,
       clearSavedConnection: () => Effect.void,
       loadOrCreateAgentAwarenessDeviceId: Effect.succeed("device-1"),

@@ -1,17 +1,19 @@
-import { NativeHeaderToolbar } from "../../native/StackHeader";
+import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useNavigation } from "@react-navigation/native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "../../components/AppSymbol";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useCallback, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
+import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { hasCloudPublicConfig } from "../cloud/publicConfig";
 import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
 import { ConnectionEnvironmentRow } from "../connection/ConnectionEnvironmentRow";
 import { splitEnvironmentSections } from "../connection/environmentSections";
 import { cn } from "../../lib/cn";
+import { navigateNestedScreen } from "../../lib/nestedStackNavigation";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 
@@ -38,16 +40,35 @@ export function SettingsEnvironmentsRouteScreen() {
   }, []);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet" testID="settings-environments-screen">
-      <NativeHeaderToolbar placement="right">
-        <NativeHeaderToolbar.Button
-          accessibilityLabel="Add environment"
-          icon="plus"
-          onPress={() => navigation.navigate("SettingsSheet", { screen: "SettingsEnvironmentNew" })}
-          separateBackground
-          tintColor={headerIconColor}
-        />
-      </NativeHeaderToolbar>
+    <View collapsable={false} className="flex-1 bg-sheet">
+      {Platform.OS === "android" ? (
+        <>
+          {/* Android renders its own in-screen header instead of the native bar. */}
+          <NativeStackScreenOptions options={{ headerShown: false }} />
+          <AndroidScreenHeader
+            title="Environments"
+            onBack={() => navigation.goBack()}
+            actions={[
+              {
+                accessibilityLabel: "Add environment",
+                icon: "plus",
+                // Sibling route inside SettingsSheetStack — do not re-target the
+                // parent "SettingsSheet" navigator or the push can no-op on Android.
+                onPress: () => navigateNestedScreen(navigation, "SettingsEnvironmentNew"),
+              },
+            ]}
+          />
+        </>
+      ) : (
+        <NativeHeaderToolbar placement="right">
+          <NativeHeaderToolbar.Button
+            icon="plus"
+            onPress={() => navigateNestedScreen(navigation, "SettingsEnvironmentNew")}
+            separateBackground
+            tintColor={headerIconColor}
+          />
+        </NativeHeaderToolbar>
+      )}
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}

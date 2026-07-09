@@ -203,6 +203,11 @@ const config: ExpoConfig = {
     "./plugins/withIosSceneLifecycle.cjs",
     "./plugins/withAndroidCleartextTraffic.cjs",
     "./plugins/withAndroidBuildFixes.cjs",
+    "./plugins/withAndroidGradleHeap.cjs",
+    "./plugins/withAndroidModernPopupMenu.cjs",
+    "./plugins/withAndroidModernAlertDialog.cjs",
+    // Embed DM Sans for native Alert/PopupMenu @font references (must run with those plugins).
+    "./plugins/withAndroidDmSansFonts.cjs",
     "./plugins/withAndroidGoogleServices.cjs",
     "./plugins/withAndroidLanDiscovery.cjs",
   ],

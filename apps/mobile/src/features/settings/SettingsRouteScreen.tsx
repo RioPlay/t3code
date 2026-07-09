@@ -32,6 +32,7 @@ import { useClerkSettingsSheetDetent } from "../cloud/ClerkSettingsSheetDetent";
 import { hasCloudPublicConfig, resolveRelayClerkTokenOptions } from "../cloud/publicConfig";
 import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
+import { navigateNestedScreen } from "../../lib/nestedStackNavigation";
 import { runtime } from "../../lib/runtime";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
@@ -254,7 +255,7 @@ function ConfiguredSettingsRouteScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Continue",
-          onPress: () => navigation.navigate("SettingsSheet", { screen: "SettingsWaitlist" }),
+          onPress: () => navigateNestedScreen(navigation, "SettingsWaitlist"),
         },
       ],
     );
@@ -416,11 +417,11 @@ function ConfiguredSettingsRouteScreen() {
   const openAccount = useCallback(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
-      navigation.navigate("SettingsSheet", { screen: "SettingsWaitlist" });
+      navigateNestedScreen(navigation, "SettingsWaitlist");
       return;
     }
     expandClerkSheet();
-    navigation.navigate("SettingsSheet", { screen: "SettingsAuth" });
+    navigateNestedScreen(navigation, "SettingsAuth");
   }, [expandClerkSheet, isLoaded, isSignedIn, navigation]);
 
   return (

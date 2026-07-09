@@ -1,10 +1,12 @@
 import { useNavigation } from "@react-navigation/native";
-import { SymbolView } from "expo-symbols";
 import type { ComponentProps } from "react";
 import { Pressable, View } from "react-native";
 
+import { SymbolView } from "../../../components/AppSymbol";
+
 import { AppText as Text } from "../../../components/AppText";
 import { useThemeColor } from "../../../lib/useThemeColor";
+import { navigateNestedScreen } from "../../../lib/nestedStackNavigation";
 import type { SettingsSheetTarget } from "./settings-sheet-targets";
 
 type SymbolName = ComponentProps<typeof SymbolView>["name"];
@@ -60,12 +62,11 @@ export function SettingsRow(props: {
         accessibilityLabel={props.label}
         accessibilityRole="button"
         disabled={props.disabled}
-        testID={`settings-row-${target}`}
-        onPress={() =>
-          navigation.navigate("SettingsSheet", {
-            screen: target,
-          })
-        }
+        onPress={() => {
+          // Settings rows render inside SettingsSheetStack — navigate by sibling
+          // route name so Android pushes reliably (parent re-target can no-op).
+          navigateNestedScreen(navigation, target);
+        }}
       >
         {content}
       </Pressable>

@@ -12,23 +12,19 @@ import type {
   SidebarProjectGroupingMode,
   SidebarThreadSortOrder,
 } from "@t3tools/contracts";
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
-import { ActivityIndicator, Platform, Pressable, View } from "react-native";
-import type { SearchBarCommands } from "react-native-screens";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  nativeStackBottomScrollInset,
-  usesNativeStackAutomaticScrollInsets,
-} from "../../lib/nativeStackInsets";
 import { useThemeColor } from "../../lib/useThemeColor";
 
-import { AppText as Text } from "../../components/AppText";
-import { BuildVariantBanner } from "../../components/BuildVariantBanner";
 import { EmptyState } from "../../components/EmptyState";
 import type { WorkspaceState } from "../../state/workspaceModel";
 import type { SavedRemoteConnection } from "../../lib/connection";
 import { scopedProjectKey } from "../../lib/scopedEntities";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import {
   PendingTaskListRow,
@@ -50,8 +46,6 @@ import { buildHomeThreadGroups, type HomeProjectSortOrder } from "./homeThreadLi
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { WorkspaceConnectionStatus } from "./WorkspaceConnectionStatus";
 import { shouldShowWorkspaceConnectionStatus } from "./workspace-connection-status";
-import { deriveWorkspaceEmptyStateAction } from "./workspace-empty-state-action";
-import { HomeBottomBar, homeBottomBarInsetHeight } from "./HomeBottomBar";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -82,14 +76,17 @@ interface HomeScreenProps {
   readonly onSelectPendingTask: (pendingTask: PendingNewTask) => void;
   readonly onDeletePendingTask: (pendingTask: PendingNewTask) => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
-  readonly searchBarRef?: RefObject<SearchBarCommands | null>;
 }
 
 /* ─── Layout constants ───────────────────────────────────────────────── */
 
 const ESTIMATED_THREAD_ROW_HEIGHT = 72;
-/** Height of the floating custom header on non-iOS platforms. */
-const CUSTOM_HEADER_HEIGHT = 78;
+/**
+ * Top spacing between the list and the Android custom header. The Android
+ * header (AndroidHomeHeader) is rendered in-flow above this screen and
+ * already consumes the top safe-area inset, so the list only needs breathing
+ * room here.
+ */
 
 function deriveEmptyState(props: {
   readonly catalogState: WorkspaceState;
@@ -154,8 +151,8 @@ function deriveEmptyState(props: {
   };
 }
 
-function HomeTopContentSpacer(props: { readonly topInset: number }) {
-  return <View style={{ height: props.topInset + CUSTOM_HEADER_HEIGHT }} />;
+function HomeTopContentSpacer() {
+  return <View className="h-4" />;
 }
 
 /* ─── Main screen ────────────────────────────────────────────────────── */
@@ -164,21 +161,48 @@ export function HomeScreen(props: HomeScreenProps) {
   const [groupDisplayStates, setGroupDisplayStates] = useState<
     ReadonlyMap<string, HomeGroupDisplayState>
   >(() => new Map());
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const openSwipeableRef = useRef<SwipeableMethods | null>(null);
   const listRef = useRef<LegendListRef | null>(null);
   const insets = useSafeAreaInsets();
   const accentColor = useThemeColor("--color-icon-muted");
 
-  const updateGroupDisplay = useCallback((key: string, action: HomeGroupDisplayAction) => {
-    setGroupDisplayStates((previous) => {
-      const next = new Map(previous);
-      next.set(
-        key,
-        nextGroupDisplayState(previous.get(key) ?? DEFAULT_GROUP_DISPLAY_STATE, action),
-      );
+  const effectiveGroupDisplayStates = useMemo(() => {
+    const next = new Map(groupDisplayStates);
+    if (!AsyncResult.isSuccess(preferencesResult)) {
       return next;
-    });
-  }, []);
+    }
+    for (const key of preferencesResult.value.collapsedProjectGroups ?? []) {
+      const existing = next.get(key);
+      next.set(key, {
+        ...(existing ?? DEFAULT_GROUP_DISPLAY_STATE),
+        collapsed: true,
+      });
+    }
+    return next;
+  }, [groupDisplayStates, preferencesResult]);
+  const effectiveGroupDisplayStatesRef = useRef(effectiveGroupDisplayStates);
+  effectiveGroupDisplayStatesRef.current = effectiveGroupDisplayStates;
+
+  const updateGroupDisplay = useCallback(
+    (key: string, action: HomeGroupDisplayAction) => {
+      const next = new Map(effectiveGroupDisplayStatesRef.current);
+      next.set(key, nextGroupDisplayState(next.get(key) ?? DEFAULT_GROUP_DISPLAY_STATE, action));
+      effectiveGroupDisplayStatesRef.current = next;
+      setGroupDisplayStates(next);
+      if (action === "toggle-collapsed") {
+        const collapsedProjectGroups: string[] = [];
+        for (const [groupKey, state] of next) {
+          if (state.collapsed) {
+            collapsedProjectGroups.push(groupKey);
+          }
+        }
+        savePreferences({ collapsedProjectGroups });
+      }
+    },
+    [savePreferences],
+  );
 
   const handleSwipeableWillOpen = useCallback((methods: SwipeableMethods) => {
     if (openSwipeableRef.current !== methods) {
@@ -229,10 +253,10 @@ export function HomeScreen(props: HomeScreenProps) {
     () =>
       buildHomeListLayout({
         groups: projectGroups,
-        displayStates: groupDisplayStates,
+        displayStates: effectiveGroupDisplayStates,
         showAllThreads: hasSearchQuery,
       }),
-    [projectGroups, groupDisplayStates, hasSearchQuery],
+    [projectGroups, effectiveGroupDisplayStates, hasSearchQuery],
   );
 
   const projectCwdByKey = useMemo(() => {
@@ -349,40 +373,15 @@ export function HomeScreen(props: HomeScreenProps) {
     catalogState: props.catalogState,
     projectCount: props.projects.length,
   });
-  const emptyStateAction = deriveWorkspaceEmptyStateAction(props.catalogState);
-  const usesAndroidBottomBar = Platform.OS === "android";
-  const bottomBarInset = usesAndroidBottomBar ? homeBottomBarInsetHeight(insets.bottom) : 0;
-  const connectionStatusBanner = shouldShowConnectionStatus ? (
-    <View className={Platform.OS === "android" ? "px-3" : undefined} style={{ paddingBottom: 16 }}>
-      <WorkspaceConnectionStatus
-        state={props.catalogState}
-        onPress={props.onOpenEnvironments}
-        variant="sidebar"
-      />
-    </View>
-  ) : null;
-  const bottomBar = usesAndroidBottomBar ? (
-    <View className="absolute bottom-0 left-0 right-0">
-      <HomeBottomBar
-        environments={props.environments}
-        onEnvironmentChange={props.onEnvironmentChange}
-        onFocusSearch={() => {
-          props.searchBarRef?.current?.focus();
-        }}
-        onOpenSettings={props.onOpenSettings}
-        onManageEnvironments={props.onOpenEnvironments}
-        onAddEnvironment={props.onAddConnection}
-        onProjectGroupingModeChange={props.onProjectGroupingModeChange}
-        onProjectSortOrderChange={props.onProjectSortOrderChange}
-        onStartNewTask={props.onStartNewTask}
-        onThreadSortOrderChange={props.onThreadSortOrderChange}
-        projectGroupingMode={props.projectGroupingMode}
-        projectSortOrder={props.projectSortOrder}
-        selectedEnvironmentId={props.selectedEnvironmentId}
-        threadSortOrder={props.threadSortOrder}
-      />
-    </View>
-  ) : null;
+  const connectionStatus =
+    shouldShowConnectionStatus && Platform.OS !== "ios" ? (
+      <View
+        className="absolute left-0 right-0 items-center"
+        style={{ bottom: Math.max(insets.bottom, 18) + 76 }}
+      >
+        <WorkspaceConnectionStatus state={props.catalogState} onPress={props.onOpenEnvironments} />
+      </View>
+    ) : null;
 
   if (!hasAnyThreads) {
     return (
@@ -390,22 +389,15 @@ export function HomeScreen(props: HomeScreenProps) {
         className="flex-1 items-center justify-center bg-screen px-8"
         style={{
           paddingBottom: Math.max(insets.bottom, 24),
-          paddingTop: Platform.OS === "ios" ? insets.top + 72 : insets.top,
+          paddingTop: Platform.OS === "ios" ? insets.top + 72 : 0,
         }}
       >
         <View className="w-full max-w-[430px]">
-          <BuildVariantBanner />
           <EmptyState
             title={emptyState.title}
             detail={emptyState.detail}
-            actionLabel={emptyStateAction?.label}
-            onAction={
-              emptyStateAction?.kind === "add-connection"
-                ? props.onAddConnection
-                : emptyStateAction?.kind === "open-environments"
-                  ? props.onOpenEnvironments
-                  : undefined
-            }
+            actionLabel={!props.catalogState.hasReadyEnvironment ? "Add environment" : undefined}
+            onAction={!props.catalogState.hasReadyEnvironment ? props.onAddConnection : undefined}
             variant="plain"
           />
           {emptyState.loading ? (
@@ -413,26 +405,25 @@ export function HomeScreen(props: HomeScreenProps) {
               <ActivityIndicator color={accentColor} />
             </View>
           ) : null}
-          {!emptyState.loading && props.onStartNewTask ? (
-            <Pressable
-              className="mt-4 self-center rounded-full bg-primary px-5 py-2.5 active:opacity-70"
-              onPress={props.onStartNewTask}
-            >
-              <Text className="text-sm font-t3-bold text-primary-foreground">New task</Text>
-            </Pressable>
-          ) : null}
         </View>
-        {connectionStatusBanner}
-        {bottomBar}
+        {connectionStatus}
       </View>
     );
   }
 
   const listHeader = (
     <>
-      <BuildVariantBanner />
-      {Platform.OS === "ios" ? null : <HomeTopContentSpacer topInset={insets.top} />}
-      {connectionStatusBanner}
+      {Platform.OS === "ios" ? null : <HomeTopContentSpacer />}
+
+      {shouldShowConnectionStatus && Platform.OS === "ios" ? (
+        <View className="pb-4">
+          <WorkspaceConnectionStatus
+            state={props.catalogState}
+            onPress={props.onOpenEnvironments}
+            variant="sidebar"
+          />
+        </View>
+      ) : null}
     </>
   );
 
@@ -450,7 +441,7 @@ export function HomeScreen(props: HomeScreenProps) {
   ) : null;
 
   return (
-    <View className="flex-1 bg-screen" testID="home-thread-list">
+    <View className="flex-1 bg-screen">
       {/* Sticky headers are deliberately not wired up: LegendList's JS sticky
           implementation mispositions pinned headers at mount under iOS
           automatic content insets (headers render one nav-inset too low until
@@ -470,10 +461,8 @@ export function HomeScreen(props: HomeScreenProps) {
           ListHeaderComponent={listHeader}
           ListEmptyComponent={listEmpty}
           style={{ flex: 1 }}
-          automaticallyAdjustsScrollIndicatorInsets={usesNativeStackAutomaticScrollInsets()}
-          contentInsetAdjustmentBehavior={
-            usesNativeStackAutomaticScrollInsets() ? "automatic" : "never"
-          }
+          automaticallyAdjustsScrollIndicatorInsets={Platform.OS === "ios"}
+          contentInsetAdjustmentBehavior={Platform.OS === "ios" ? "automatic" : "never"}
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -481,7 +470,12 @@ export function HomeScreen(props: HomeScreenProps) {
           recycleItems
           scrollEventThrottle={16}
           contentContainerStyle={{
-            paddingBottom: nativeStackBottomScrollInset(insets, 24) + 24 + bottomBarInset,
+            // Android reserves room for the floating new-task FAB
+            // (56 button + 16 gap + bottom inset).
+            paddingBottom:
+              Platform.OS === "ios"
+                ? Math.max(insets.bottom, 24) + 24
+                : Math.max(insets.bottom, 16) + 88,
           }}
           scrollIndicatorInsets={
             Platform.OS === "ios"
@@ -493,7 +487,7 @@ export function HomeScreen(props: HomeScreenProps) {
           }
         />
       </SwipeableScrollGateProvider>
-      {bottomBar}
+      {connectionStatus}
     </View>
   );
 }

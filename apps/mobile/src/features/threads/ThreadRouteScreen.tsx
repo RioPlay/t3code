@@ -1,4 +1,4 @@
-import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
+import { NativeStackScreenOptions } from "../../native/StackHeader";
 import {
   StackActions,
   useFocusEffect,
@@ -19,6 +19,10 @@ import { useEnvironmentQuery } from "../../state/query";
 import { dismissGitActionResult, useGitActionProgress } from "../../state/use-vcs-action-state";
 import { vcsEnvironment } from "../../state/vcs";
 
+import {
+  AndroidScreenHeader,
+  type AndroidHeaderAction,
+} from "../../components/AndroidScreenHeader";
 import { BuildVariantBanner } from "../../components/BuildVariantBanner";
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingScreen } from "../../components/LoadingScreen";
@@ -661,6 +665,27 @@ function ThreadRouteContent(
     ],
     [handleOpenSettings, threadRightHeaderItems],
   );
+  // Header-row actions for Android in-flow chrome. Files/terminal/git/review
+  // still live on the accessory bar. New-task + settings mirror the iOS
+  // NativeHeaderToolbar buttons (unstable_headerRightItems is a no-op when
+  // headerShown is false on Android).
+  const androidHeaderActions = useMemo<ReadonlyArray<AndroidHeaderAction>>(() => {
+    if (Platform.OS !== "android") return [];
+    const actions: AndroidHeaderAction[] = [];
+    if (selectedThreadProject) {
+      actions.push({
+        accessibilityLabel: `New thread in ${selectedThreadProject.title}`,
+        icon: "square.and.pencil",
+        onPress: handleNewThreadInProject,
+      });
+    }
+    actions.push({
+      accessibilityLabel: "Open settings",
+      icon: "gearshape",
+      onPress: handleOpenSettings,
+    });
+    return actions;
+  }, [handleNewThreadInProject, handleOpenSettings, selectedThreadProject]);
   const usesAndroidAccessoryBar = Platform.OS === "android";
   const accessoryBarLayout = layout.usesSplitView ? ("rail" as const) : ("phone" as const);
   const activeAccessorySurface = useMemo<ThreadAccessorySurface>(() => {
@@ -910,24 +935,9 @@ function ThreadRouteContent(
   );
   const renderThreadRouteBody = (showActionControls: boolean) => (
     <>
-      {usesAndroidAccessoryBar ? (
-        <NativeHeaderToolbar placement="right">
-          {selectedThreadProject ? (
-            <NativeHeaderToolbar.Button
-              accessibilityLabel={`New thread in ${selectedThreadProject.title}`}
-              icon="square.and.pencil"
-              onPress={handleNewThreadInProject}
-              separateBackground
-            />
-          ) : null}
-          <NativeHeaderToolbar.Button
-            accessibilityLabel="Open settings"
-            icon="gearshape"
-            onPress={handleOpenSettings}
-            separateBackground
-          />
-        </NativeHeaderToolbar>
-      ) : null}
+      {/* Android header actions are on AndroidScreenHeader (see androidHeaderActions).
+          NativeHeaderToolbar / unstable_headerRightItems do not paint when headerShown
+          is false, so do not rely on them for Android chrome. */}
       <ThreadGitControls {...threadGitControlProps} showActionControls={showActionControls} />
 
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
@@ -947,7 +957,10 @@ function ThreadRouteContent(
       {activeInspectorRenderer ? <InspectorPaneRoleActivation /> : null}
       <NativeStackScreenOptions
         options={{
-          ...resolveAndroidWorkspaceHeaderOptions(sheetColor),
+          // Android draws its own in-flow header (AndroidScreenHeader below);
+          // keep the native stack header iOS-only (matches #3579).
+          headerShown: Platform.OS !== "android",
+          ...(Platform.OS === "android" ? {} : resolveAndroidWorkspaceHeaderOptions(sheetColor)),
           headerTitle: selectedThread.title,
           headerTitleStyle: usesNativeHeaderGlass
             ? {
@@ -978,6 +991,15 @@ function ThreadRouteContent(
           unstable_headerSubtitle: headerSubtitle.length > 0 ? headerSubtitle : undefined,
         }}
       />
+
+      {Platform.OS === "android" ? (
+        <AndroidScreenHeader
+          title={selectedThread.title}
+          subtitle={headerSubtitle}
+          onBack={layout.usesSplitView ? undefined : () => navigation.goBack()}
+          actions={androidHeaderActions}
+        />
+      ) : null}
 
       {renderThreadRouteBody(
         !layout.usesSplitView && !usesNativeHeaderGlass && !usesAndroidAccessoryBar,

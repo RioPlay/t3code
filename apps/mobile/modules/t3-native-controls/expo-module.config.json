@@ -5,6 +5,9 @@
     "podspecPath": "ios/T3NativeControls.podspec"
   },
   "android": {
-    "modules": ["expo.modules.t3nativecontrols.T3KeyboardCommandsModule"]
+    "modules": [
+      "expo.modules.t3nativecontrols.T3NativeControlsModule",
+      "expo.modules.t3nativecontrols.T3KeyboardCommandsModule"
+    ]
   }
 }
