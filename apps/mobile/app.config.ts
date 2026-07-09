@@ -202,6 +202,9 @@ const config: ExpoConfig = {
     ],
     "./plugins/withIosSceneLifecycle.cjs",
     "./plugins/withAndroidCleartextTraffic.cjs",
+    // Bind OkHttp (fetch/WS) to the Network with a real route to LAN/hotspot
+    // hosts so SoftAP + cellular dual-network setups work on modern Android.
+    "./plugins/withAndroidMultiNetworkRouting.cjs",
     "./plugins/withAndroidBuildFixes.cjs",
     "./plugins/withAndroidGradleHeap.cjs",
     "./plugins/withAndroidModernPopupMenu.cjs",
