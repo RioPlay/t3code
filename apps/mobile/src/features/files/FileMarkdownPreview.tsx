@@ -148,6 +148,8 @@ function useMarkdownPreviewStyles(): MarkdownPreviewStyles {
         fontFamily: regularFontFamily,
         headingFontFamily: boldFontFamily,
         boldFontFamily,
+        tableSurfaceColor: blockquoteBackground,
+        tableRowAltColor: codeBackground,
       },
     };
   }, [

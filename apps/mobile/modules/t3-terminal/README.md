@@ -18,21 +18,9 @@ uses that callback I/O model:
 4. send user input back to JS with the write callback
 5. emit Ghostty's measured terminal size through `onResize`
 
-Android currently implements the same view name (`T3TerminalSurface`) and event payloads so the
-React Native screen and RPC code stay platform-neutral. The renderer backend can be replaced with a
-future Android Ghostty build without changing JS.
-
-## WebView terminal security profile (T2 default on Android)
-
-When `capabilities.terminal.preferWebView` is true, the React Native screen uses bundled inline HTML
-with `@xterm/xterm` instead of this native view. Security gates:
-
-- **SEC-050:** Terminal WebView loads bundled inline HTML only — no remote `source.uri`.
-- **SEC-051:** `postMessage` bridge accepts only `{ type: "ready" | "input" | "resize" }`.
-- **SEC-052:** OSC 8 hyperlinks are stripped before writing terminal output; xterm link handlers are
-  not registered.
-
-Regenerate bundled assets with `vp run sync:terminal-webview` from `apps/mobile`.
+Android implements the same view contract with upstream `libghostty-vt` for terminal state, parsing,
+reflow, and scrollback. An Android Canvas view renders compact snapshots produced by the JNI bridge,
+so the React Native screen and RPC code stay platform-neutral.
 
 Vendored Ghostty revision and license details are in `THIRD_PARTY_NOTICES.md`.
 
@@ -48,3 +36,15 @@ apps/mobile/modules/t3-terminal/scripts/build-libghostty-ios16.sh
 The script builds Ghostty with Zig 0.15.2, strips the iOS archives, and replaces only the
 `ios-arm64` and `ios-arm64-simulator` slices. Xcode's Metal toolchain must be installed; if `metal`
 fails, run `xcodebuild -downloadComponent MetalToolchain`.
+
+## Rebuilding libghostty-vt for Android
+
+The checked-in Android shared libraries and headers are pinned to the revision recorded in
+`Vendor/libghostty-vt/VERSION`. Set `ANDROID_NDK_HOME` and run:
+
+```bash
+apps/mobile/modules/t3-terminal/scripts/build-libghostty-android.sh
+```
+
+The script downloads Zig 0.15.2 when needed, checks out the pinned upstream Ghostty revision, and
+rebuilds all four Android ABIs with 16 KB page-size support.

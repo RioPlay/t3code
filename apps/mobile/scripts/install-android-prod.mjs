@@ -17,6 +17,9 @@ function run(command, args, options = {}) {
     env: {
       ...process.env,
       APP_VARIANT: "production",
+      // Uniwind/Metro require production mode for release bundles; without this
+      // className styles can no-op and the UI paints as a blank grey shell.
+      NODE_ENV: "production",
       EXPO_NO_GIT_STATUS: "1",
       ...options.env,
     },

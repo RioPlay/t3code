@@ -1,26 +1,22 @@
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useNavigation } from "@react-navigation/native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "../../components/AppSymbol";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { useMemo } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColor } from "../../lib/useThemeColor";
-import { HeaderIconButton } from "../../components/HeaderIconButton";
+import { cn } from "../../lib/cn";
 
+import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AppText as Text } from "../../components/AppText";
 import { ProjectFavicon } from "../../components/ProjectFavicon";
+import { navigateNestedScreen } from "../../lib/nestedStackNavigation";
 import { useProjects, useThreadShells } from "../../state/entities";
 import type { WorkspaceState } from "../../state/workspaceModel";
 import { useWorkspaceState } from "../../state/workspace";
 import { groupProjectsByRepository } from "../../lib/repositoryGroups";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
-import { BuildVariantBanner } from "../../components/BuildVariantBanner";
-import {
-  navigateToAddEnvironment,
-  navigateToEnvironmentHub,
-} from "../environment/environmentHubNavigation";
-import { deriveWorkspaceEmptyStateAction } from "../home/workspace-empty-state-action";
 
 function deriveProjectEmptyState(catalogState: WorkspaceState): {
   readonly title: string;
@@ -86,7 +82,6 @@ export function NewTaskRouteScreen() {
   const insets = useSafeAreaInsets();
   const chevronColor = useThemeColor("--color-chevron");
   const accentColor = useThemeColor("--color-icon-muted");
-  const borderSubtleColor = useThemeColor("--color-border-subtle");
   const repositoryGroups = useMemo(
     () => groupProjectsByRepository({ projects, threads }),
     [projects, threads],
@@ -115,45 +110,48 @@ export function NewTaskRouteScreen() {
     return nextItems;
   }, [repositoryGroups]);
   const projectEmptyState = deriveProjectEmptyState(catalogState);
-  const emptyStateAction = deriveWorkspaceEmptyStateAction(catalogState);
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet" testID="new-task-screen">
-      <NativeStackScreenOptions
-        options={{
-          headerRight:
-            Platform.OS === "android"
-              ? () => (
-                  <HeaderIconButton
-                    accessibilityLabel="Add project"
-                    icon="plus"
-                    onPress={() => navigation.navigate("NewTaskSheet", { screen: "AddProject" })}
-                  />
-                )
-              : undefined,
-        }}
-      />
-      <NativeHeaderToolbar placement="right">
-        {layout.usesSplitView ? (
+    <View collapsable={false} className="flex-1 bg-sheet">
+      {Platform.OS === "android" ? (
+        <>
+          {/* Android renders its own in-screen header instead of the native bar. */}
+          <NativeStackScreenOptions options={{ headerShown: false }} />
+          <AndroidScreenHeader
+            title="Choose project"
+            onBack={layout.usesSplitView ? () => navigation.goBack() : undefined}
+            actions={[
+              {
+                accessibilityLabel: "Add project",
+                icon: "plus",
+                // Sibling route inside NewTaskSheetStack.
+                onPress: () => navigateNestedScreen(navigation, "AddProject"),
+              },
+            ]}
+          />
+        </>
+      ) : (
+        <NativeHeaderToolbar placement="right">
+          {layout.usesSplitView ? (
+            <NativeHeaderToolbar.Button
+              accessibilityLabel="Close new task"
+              icon="xmark"
+              onPress={() => navigation.goBack()}
+              separateBackground
+            />
+          ) : null}
           <NativeHeaderToolbar.Button
-            accessibilityLabel="Close new task"
-            icon="xmark"
-            onPress={() => navigation.goBack()}
+            icon="plus"
+            onPress={() => navigateNestedScreen(navigation, "AddProject")}
             separateBackground
           />
-        ) : null}
-        <NativeHeaderToolbar.Button
-          icon="plus"
-          onPress={() => navigation.navigate("NewTaskSheet", { screen: "AddProject" })}
-          separateBackground
-        />
-      </NativeHeaderToolbar>
+        </NativeHeaderToolbar>
+      )}
 
-      <BuildVariantBanner />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1 }}
+        className="flex-1"
         contentInset={{ bottom: Math.max(insets.bottom, 18) + 18 }}
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -169,29 +167,25 @@ export function NewTaskRouteScreen() {
             <Text className="text-center text-sm leading-normal text-foreground-muted">
               {projectEmptyState.detail}
             </Text>
-            {emptyStateAction ? (
+            {!catalogState.hasReadyEnvironment ? (
               <Pressable
                 className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
-                onPress={() =>
-                  emptyStateAction.kind === "add-connection"
-                    ? navigateToAddEnvironment(navigation)
-                    : navigateToEnvironmentHub(navigation)
-                }
+                onPress={() => navigation.navigate("ConnectionsNew")}
               >
                 <Text className="text-sm font-t3-bold text-primary-foreground">
-                  {emptyStateAction.label}
+                  Add environment
                 </Text>
               </Pressable>
-            ) : catalogState.hasReadyEnvironment ? (
+            ) : (
               <Pressable
                 className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
-                onPress={() => navigation.navigate("NewTaskSheet", { screen: "AddProject" })}
+                onPress={() => navigateNestedScreen(navigation, "AddProject")}
               >
                 <Text className="text-sm font-t3-bold text-primary-foreground">
                   Add new project
                 </Text>
               </Pressable>
-            ) : null}
+            )}
           </View>
         ) : (
           <View collapsable={false} className="overflow-hidden rounded-[24px] bg-card">
@@ -202,27 +196,19 @@ export function NewTaskRouteScreen() {
               return (
                 <Pressable
                   key={item.key}
-                  className="bg-card"
                   onPress={() =>
-                    navigation.navigate("NewTaskSheet", {
-                      screen: "NewTaskDraft",
-                      params: {
-                        environmentId: item.environmentId,
-                        projectId: item.id,
-                        title: item.title,
-                      },
+                    navigateNestedScreen(navigation, "NewTaskDraft", {
+                      environmentId: item.environmentId,
+                      projectId: item.id,
+                      title: item.title,
                     })
                   }
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    borderTopWidth: isFirst ? 0 : 1,
-                    borderTopColor: borderSubtleColor,
-                    borderTopLeftRadius: isFirst ? 24 : 0,
-                    borderTopRightRadius: isFirst ? 24 : 0,
-                    borderBottomLeftRadius: isLast ? 24 : 0,
-                    borderBottomRightRadius: isLast ? 24 : 0,
-                  }}
+                  className={cn(
+                    "bg-card px-4 py-3.5",
+                    !isFirst && "border-t border-border-subtle",
+                    isFirst && "rounded-t-[24px]",
+                    isLast && "rounded-b-[24px]",
+                  )}
                 >
                   <View className="flex-row items-center justify-between gap-3">
                     <View className="h-7 w-7 items-center justify-center">

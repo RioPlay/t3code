@@ -58,9 +58,6 @@ const SHEET_BACKGROUND_COLOR =
   Platform.OS === "ios"
     ? DynamicColorIOS({ light: "rgba(242, 242, 247, 0.98)", dark: "rgba(14, 14, 14, 0.98)" })
     : undefined;
-const PLATFORM_MODAL_PRESENTATION = Platform.OS === "ios" ? "formSheet" : "modal";
-const platformSheetDetents = (detents: number[]): number[] | undefined =>
-  Platform.OS === "ios" ? detents : undefined;
 
 type AppScreenOptions = NativeStackNavigationOptions & {
   readonly unstable_navigationItemStyle?: "editor";
@@ -69,17 +66,6 @@ type AppScreenOptions = NativeStackNavigationOptions & {
 // Shared header presets. Screens only override genuinely dynamic values (titles,
 // subtitles, toolbar items, search callbacks) via NativeStackScreenOptions.
 //
-// ANDROID_WORKSPACE: opaque Material header for Home/Thread — no glass sampling.
-const ANDROID_WORKSPACE_HEADER_OPTIONS: AppScreenOptions = {
-  headerBackButtonDisplayMode: "minimal",
-  headerBackTitle: "",
-  headerLargeTitle: false,
-  headerShadowVisible: true,
-  headerShown: true,
-  headerTitleStyle: { fontSize: 18, fontWeight: "800" },
-  headerTransparent: false,
-};
-
 // GLASS: transparent header over the screen's primary scroll view, with the iOS 26
 // scroll-edge blur sampling the content (Home, Thread, Files tree, settings sheet).
 const GLASS_HEADER_OPTIONS: AppScreenOptions = {
@@ -119,9 +105,6 @@ const SHEET_SOLID_HEADER_OPTIONS: AppScreenOptions = {
   ...SOLID_HEADER_OPTIONS,
   unstable_navigationItemStyle: undefined,
 };
-
-const WORKSPACE_HEADER_OPTIONS: AppScreenOptions =
-  Platform.OS === "ios" ? GLASS_HEADER_OPTIONS : ANDROID_WORKSPACE_HEADER_OPTIONS;
 
 const SettingsSheetStack = createNativeStackNavigator({
   initialRouteName: "Settings",
@@ -350,8 +333,8 @@ export const RootStack = createNativeStackNavigator({
       screen: HomeRouteScreen,
       linking: "",
       options: {
-        ...WORKSPACE_HEADER_OPTIONS,
-        contentStyle: Platform.OS === "ios" ? { backgroundColor: "transparent" } : undefined,
+        ...GLASS_HEADER_OPTIONS,
+        contentStyle: { backgroundColor: "transparent" },
         headerBackVisible: false,
         title: "Threads",
       },
@@ -359,7 +342,7 @@ export const RootStack = createNativeStackNavigator({
     Thread: createNativeStackScreen({
       screen: ThreadRouteScreen,
       linking: THREAD_LINKING_PREFIX,
-      options: WORKSPACE_HEADER_OPTIONS,
+      options: GLASS_HEADER_OPTIONS,
     }),
     ThreadTerminal: createNativeStackScreen({
       screen: ThreadTerminalRouteScreen,
@@ -375,9 +358,11 @@ export const RootStack = createNativeStackNavigator({
       screen: ReviewCommentComposerSheet,
       linking: `${THREAD_LINKING_PREFIX}/review-comment`,
       options: {
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
-        sheetGrabberVisible: true,
+        // Android cannot host the keyboard-driven comment composer inside a
+        // formSheet; use a full-screen modal there instead.
+        presentation: Platform.OS === "android" ? "fullScreenModal" : "formSheet",
+        sheetAllowedDetents: Platform.OS === "android" ? undefined : [0.55, 0.92],
+        sheetGrabberVisible: Platform.OS !== "android",
       },
     }),
     ThreadFiles: createNativeStackScreen({
@@ -401,8 +386,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitOverviewSheet,
       linking: `${THREAD_LINKING_PREFIX}/git`,
       options: {
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
+        presentation: "formSheet",
+        sheetAllowedDetents: [0.55, 0.92],
         sheetGrabberVisible: true,
       },
     }),
@@ -410,8 +395,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitCommitSheet,
       linking: `${THREAD_LINKING_PREFIX}/git/commit`,
       options: {
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
+        presentation: "formSheet",
+        sheetAllowedDetents: [0.55, 0.92],
         sheetGrabberVisible: true,
       },
     }),
@@ -419,8 +404,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitBranchesSheet,
       linking: `${THREAD_LINKING_PREFIX}/git/branches`,
       options: {
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.55, 0.92]),
+        presentation: "formSheet",
+        sheetAllowedDetents: [0.55, 0.92],
         sheetGrabberVisible: true,
       },
     }),
@@ -428,8 +413,8 @@ export const RootStack = createNativeStackNavigator({
       screen: GitConfirmSheet,
       linking: `${THREAD_LINKING_PREFIX}/git-confirm`,
       options: {
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.45, 0.7]),
+        presentation: "formSheet",
+        sheetAllowedDetents: [0.45, 0.7],
         sheetGrabberVisible: true,
       },
     }),
@@ -439,9 +424,15 @@ export const RootStack = createNativeStackNavigator({
       options: {
         gestureEnabled: true,
         headerShown: false,
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.7, 0.92]),
-        sheetGrabberVisible: true,
+        // Android pushes settings as a regular full page with an in-screen
+        // back header; iOS keeps the detented form sheet.
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const }
+          : {
+              presentation: "formSheet" as const,
+              sheetAllowedDetents: [0.7, 0.92],
+              sheetGrabberVisible: true,
+            }),
       },
     }),
     ConnectOnboarding: createNativeStackScreen({
@@ -463,17 +454,23 @@ export const RootStack = createNativeStackNavigator({
       linking: "connections",
       options: {
         title: "Environments",
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.55, 0.7]),
-        sheetGrabberVisible: true,
+        // Android: full page; the screen renders its own AndroidScreenHeader,
+        // so the native bar stays hidden. iOS keeps the sheet.
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : {
+              presentation: "formSheet" as const,
+              sheetAllowedDetents: [0.55, 0.7],
+              sheetGrabberVisible: true,
+            }),
       },
     }),
     ConnectionsNew: createNativeStackScreen({
       screen: ConnectionsNewRouteScreen,
       linking: "connections/new",
       options: {
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.55, 0.7]),
+        presentation: "formSheet",
+        sheetAllowedDetents: [0.55, 0.7],
         sheetGrabberVisible: true,
       },
     }),
@@ -487,9 +484,15 @@ export const RootStack = createNativeStackNavigator({
       options: {
         gestureEnabled: true,
         headerShown: false,
-        presentation: PLATFORM_MODAL_PRESENTATION,
-        sheetAllowedDetents: platformSheetDetents([0.92]),
-        sheetGrabberVisible: true,
+        // Android pushes the flow as a regular full page — the draft should
+        // read like a thread that just doesn't exist yet; iOS keeps the sheet.
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const }
+          : {
+              presentation: "formSheet" as const,
+              sheetAllowedDetents: [0.92],
+              sheetGrabberVisible: true,
+            }),
       },
     }),
     NotFound: createNativeStackScreen({

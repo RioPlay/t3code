@@ -1,5 +1,5 @@
 import { DEFAULT_TERMINAL_ID, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "../../components/AppSymbol";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, View } from "react-native";
 
@@ -7,9 +7,8 @@ import { AppText as Text } from "../../components/AppText";
 import { terminalEnvironment } from "../../state/terminal";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useAttachedTerminalSession } from "../../state/use-terminal-session";
-import { platformCapabilities } from "../../platform/capabilities";
 import { TerminalSurface } from "./NativeTerminalSurface";
-import { resolveTerminalTier, terminalTierLabel } from "./terminalTierModel";
+import { hasNativeTerminalSurface } from "./nativeTerminalModule";
 import {
   buildThreadTerminalAttachInput,
   type TerminalGridSize,
@@ -33,7 +32,7 @@ export const ThreadTerminalPanel = memo(function ThreadTerminalPanel(
 ) {
   const writeTerminal = useAtomCommand(terminalEnvironment.write, "terminal write");
   const resizeTerminal = useAtomCommand(terminalEnvironment.resize, "terminal resize");
-  const terminalTier = resolveTerminalTier(platformCapabilities);
+  const nativeTerminalAvailable = hasNativeTerminalSurface();
   const terminalId = DEFAULT_TERMINAL_ID;
   const lastGridSizeRef = useRef<TerminalGridSize>({
     cols: DEFAULT_TERMINAL_COLS,
@@ -132,7 +131,7 @@ export const ThreadTerminalPanel = memo(function ThreadTerminalPanel(
             Terminal
           </Text>
           <Text className="text-2xs text-neutral-500" numberOfLines={1}>
-            {terminalTierLabel(terminalTier)}
+            {nativeTerminalAvailable ? "Native Ghostty surface" : "Text fallback active"}
           </Text>
         </View>
         <View className="flex-row items-center gap-2">

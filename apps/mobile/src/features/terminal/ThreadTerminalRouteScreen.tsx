@@ -1,10 +1,10 @@
 import { DEFAULT_TERMINAL_ID, EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { type KnownTerminalSession } from "@t3tools/client-runtime/state/terminal";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "../../components/AppSymbol";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { StackActions, useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, View, useColorScheme } from "react-native";
+import { Platform, Pressable, View, useColorScheme } from "react-native";
 import {
   KeyboardController,
   KeyboardEvents,
@@ -39,11 +39,8 @@ import {
 import { useThreadSelection } from "../../state/use-thread-selection";
 import { useSelectedThreadDetail } from "../../state/use-thread-detail";
 import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
-import { navigateToEnvironmentHub } from "../environment/environmentHubNavigation";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
-import { platformCapabilities } from "../../platform/capabilities";
 import { TerminalSurface } from "./NativeTerminalSurface";
-import { resolveTerminalTier, terminalRouteHeaderSubtitle } from "./terminalTierModel";
 import { getPierreTerminalTheme } from "./terminalTheme";
 import { terminalDebugLog } from "./terminalDebugLog";
 import {
@@ -405,12 +402,10 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
   );
 
   const terminalTheme = getPierreTerminalTheme(appearanceScheme);
+  const usesNativeHeaderGlass = Platform.OS === "ios";
   const pendingModifier =
     pendingModifierState.terminalId === terminalId ? pendingModifierState.value : null;
-  const headerSubtitle = terminalRouteHeaderSubtitle({
-    tier: resolveTerminalTier(platformCapabilities),
-    sessionLabel: resolveTerminalSessionLabel(terminalId, terminal.summary),
-  });
+  const headerSubtitle = selectedThreadProject?.title ?? "";
   const terminalToolbarActions = useMemo<ReadonlyArray<TerminalToolbarAction>>(() => {
     const modifierActions: ReadonlyArray<TerminalToolbarAction> =
       hostPlatform === "mac"
@@ -864,7 +859,8 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
           // scrolls internally, nothing for glass to sample). Default title/subtitle
           // styling, like every other page.
           title: "Terminal",
-          unstable_headerSubtitle: headerSubtitle.length > 0 ? headerSubtitle : undefined,
+          unstable_headerSubtitle:
+            usesNativeHeaderGlass && headerSubtitle.length > 0 ? headerSubtitle : undefined,
         }}
       />
 
@@ -933,10 +929,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
         </NativeHeaderToolbar>
       ) : null}
 
-      <View
-        style={{ flex: 1, backgroundColor: terminalTheme.background }}
-        testID="thread-terminal-screen"
-      >
+      <View className="flex-1" style={{ backgroundColor: terminalTheme.background }}>
         {!isEnvironmentReady ? (
           <EnvironmentConnectionNotice
             environmentLabel={
@@ -953,11 +946,10 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
             }
             resourceName="terminal"
             onRetry={handleRetryEnvironment}
-            onManageEnvironments={() => navigateToEnvironmentHub(navigation)}
           />
         ) : (
           <>
-            <View style={{ flex: 1, paddingBottom: terminalBottomInset }}>
+            <View className="flex-1" style={{ paddingBottom: terminalBottomInset }}>
               <TerminalSurface
                 buffer={terminalSurfaceBuffer}
                 fontSize={fontSize}
@@ -976,10 +968,10 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                 offset={{ closed: 0, opened: 0 }}
               >
                 <View
+                  className="border-t"
                   style={{
                     backgroundColor: terminalTheme.background,
                     borderTopColor: terminalTheme.border,
-                    borderTopWidth: 1,
                     minHeight: TERMINAL_ACCESSORY_HEIGHT,
                   }}
                 >

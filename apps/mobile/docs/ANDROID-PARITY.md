@@ -10,12 +10,12 @@ Nitro markdown, variant launcher art, production cleartext off, and Play interna
 
 Resolved at build time in `src/platform/capabilities.ts`:
 
-| Surface     | Android default                          | iOS default                  |
-| ----------- | ---------------------------------------- | ---------------------------- |
-| Review diff | JS list + highlighter (tier-1 certified) | Native `T3ReviewDiffSurface` |
-| Markdown    | Nitro markdown                           | Native selectable markdown   |
-| Terminal    | Native `T3TerminalView`                  | Native `T3TerminalView`      |
-| Composer    | Native `T3ComposerEditor`                | Native `T3ComposerEditor`    |
+| Surface     | Android default                                       | iOS default                  |
+| ----------- | ----------------------------------------------------- | ---------------------------- |
+| Review diff | Native `T3ReviewDiffSurface` when linked; JS fallback | Native `T3ReviewDiffSurface` |
+| Markdown    | Nitro markdown                                        | Native selectable markdown   |
+| Terminal    | Native Ghostty/`T3TerminalView` (WebView override)    | Native `T3TerminalView`      |
+| Composer    | Native `T3ComposerEditor`                             | Native `T3ComposerEditor`    |
 
 ### Tier-2 program status (t00–t20)
 
@@ -46,13 +46,13 @@ EXPO_PUBLIC_NATIVE_COMPOSER=0          # opt out of native composer on Android
 
 ## Native modules
 
-| Module               | Android         | Notes                                               |
-| -------------------- | --------------- | --------------------------------------------------- |
-| `t3-native-controls` | Yes             | Hardware keyboard shortcuts                         |
-| `t3-terminal`        | Yes             | Native default on Android; WebView via env override |
-| `t3-composer-editor` | Yes             | Inline chips + clipboard image paste on Android     |
-| `t3-review-diff`     | No              | iOS only — Android uses tier-1 certified JS review  |
-| `t3-markdown-text`   | No (selectable) | Nitro markdown covers Android rendering             |
+| Module               | Android         | Notes                                                                       |
+| -------------------- | --------------- | --------------------------------------------------------------------------- |
+| `t3-native-controls` | Yes             | Header button + hardware keyboard shortcuts                                 |
+| `t3-terminal`        | Yes             | Ghostty `libghostty-vt` JNI (aligned with upstream #3579); WebView override |
+| `t3-composer-editor` | Yes             | Inline chips + clipboard image paste on Android                             |
+| `t3-review-diff`     | Yes             | Native canvas surface ported from upstream #3579; JS review still forceable |
+| `t3-markdown-text`   | No (selectable) | Nitro markdown covers Android rendering                                     |
 
 Android-specific product features:
 
@@ -123,4 +123,9 @@ scripts/android-parity/run-tier1-plus.sh   # phase tier1_plus (t00–t20)
 
 1. **Human store publish** — hg01/hg02: production `google-services` on EAS + Play internal rollout
 2. **Secondary chrome polish** — ongoing design-review of edge screens vs iOS reference
-3. **Optional M4** — FGS, widgets, Ghostty NDK (out of scope per DEC-003/DEC-005)
+3. **Optional M4** — FGS, widgets, full Ghostty GPU surface (out of scope per DEC-003/DEC-005)
+
+Native review pull-to-refresh (`refreshing` + `onPullToRefresh`) is implemented on Android
+to match the iOS / JS contract. Prebuilt `libghostty-vt.so` ABIs ship under
+`modules/t3-terminal/android/src/main/jniLibs/`; rebuild with
+`modules/t3-terminal/scripts/build-libghostty-android.sh` when upgrading Ghostty.

@@ -6,9 +6,11 @@ import { LegendList } from "@legendapp/list/react-native";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { MenuAction } from "@react-native-menu/menu";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "../../components/AppSymbol";
+import { useNavigation } from "@react-navigation/native";
 import { useCallback, useMemo, useRef, type ComponentProps } from "react";
 import {
+  TextInput,
   ActivityIndicator,
   Platform,
   Pressable,
@@ -23,10 +25,10 @@ import { AppText as Text } from "../../components/AppText";
 import { ControlPillMenu } from "../../components/ControlPill";
 import { EmptyState } from "../../components/EmptyState";
 import { ProjectFavicon } from "../../components/ProjectFavicon";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { relativeTime } from "../../lib/time";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { ThreadSwipeable } from "../home/thread-swipe-actions";
-import { createAndroidStackedSearchBarOptions } from "../layout/androidMailSearchToolbar";
 import { createNativeMailSearchToolbarItem } from "../layout/native-mail-search-toolbar";
 import type { ArchivedThreadGroup, ArchivedThreadSortOrder } from "./archivedThreadList";
 
@@ -34,20 +36,6 @@ export interface ArchivedThreadsHeaderEnvironment {
   readonly environmentId: EnvironmentId;
   readonly label: string;
 }
-
-const THREAD_ACTIONS: MenuAction[] = [
-  {
-    id: "unarchive",
-    title: "Unarchive",
-    image: "arrow.uturn.backward",
-  },
-  {
-    id: "delete",
-    title: "Delete",
-    image: "trash",
-    attributes: { destructive: true },
-  },
-];
 
 type ArchivedThreadListItem =
   | {
@@ -67,6 +55,7 @@ type ArchivedThreadListItem =
 
 function ArchivedThreadsHeader(props: {
   readonly environments: ReadonlyArray<ArchivedThreadsHeaderEnvironment>;
+  readonly searchQuery: string;
   readonly selectedEnvironmentId: EnvironmentId | null;
   readonly sortOrder: ArchivedThreadSortOrder;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
@@ -75,8 +64,140 @@ function ArchivedThreadsHeader(props: {
   readonly onSortOrderChange: (sortOrder: ArchivedThreadSortOrder) => void;
 }) {
   const { width } = useWindowDimensions();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const hasCustomFilter = props.selectedEnvironmentId !== null || props.sortOrder !== "newest";
+  const searchIconColor = useThemeColor("--color-icon");
+  const searchTextColor = useThemeColor("--color-foreground");
+  const usesNativeChrome = Platform.OS === "ios";
   const usesCompactMailToolbar = Platform.OS === "ios" && width < 700;
+  const androidFilterActions = useMemo<MenuAction[]>(
+    () => [
+      {
+        id: "environment",
+        title: "Environment",
+        subactions: [
+          {
+            id: "environment:all",
+            title: "All environments",
+            state: props.selectedEnvironmentId === null ? ("on" as const) : undefined,
+          },
+          ...props.environments.map((environment) => ({
+            id: `environment:${environment.environmentId}`,
+            title: environment.label,
+            state:
+              props.selectedEnvironmentId === environment.environmentId
+                ? ("on" as const)
+                : undefined,
+          })),
+        ],
+      },
+      {
+        id: "sort",
+        title: "Sort by archived date",
+        subactions: [
+          {
+            id: "sort:newest",
+            title: "Newest first",
+            state: props.sortOrder === "newest" ? ("on" as const) : undefined,
+          },
+          {
+            id: "sort:oldest",
+            title: "Oldest first",
+            state: props.sortOrder === "oldest" ? ("on" as const) : undefined,
+          },
+        ],
+      },
+    ],
+    [props.environments, props.selectedEnvironmentId, props.sortOrder],
+  );
+  const handleAndroidFilterAction = useCallback(
+    (event: { nativeEvent: { event: string } }) => {
+      const action = event.nativeEvent.event;
+      if (action === "environment:all") {
+        props.onEnvironmentChange(null);
+      } else if (action.startsWith("environment:")) {
+        props.onEnvironmentChange(action.slice("environment:".length) as EnvironmentId);
+      } else if (action === "sort:newest") {
+        props.onSortOrderChange("newest");
+      } else if (action === "sort:oldest") {
+        props.onSortOrderChange("oldest");
+      }
+    },
+    [props.onEnvironmentChange, props.onSortOrderChange],
+  );
+
+  if (Platform.OS === "android") {
+    // Single header row matching the app's Android chrome (AndroidScreenHeader
+    // palette): back chevron, inline search, filter menu.
+    return (
+      <>
+        <NativeStackScreenOptions options={{ headerShown: false }} />
+        <View
+          className="border-b border-header-border bg-header px-3 pb-2.5"
+          style={{
+            paddingTop: Math.max(insets.top, 12),
+          }}
+        >
+          <View className="min-h-12 flex-row items-center gap-2">
+            <Pressable
+              accessibilityLabel="Navigate up"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => navigation.goBack()}
+              className="size-11 items-center justify-center"
+            >
+              <SymbolView
+                name="chevron.left"
+                size={24}
+                tintColor={searchTextColor}
+                type="monochrome"
+              />
+            </Pressable>
+            <View className="min-h-11 flex-1 flex-row items-center gap-2.5 rounded-2xl bg-input px-3.5">
+              <SymbolView
+                name="magnifyingglass"
+                size={17}
+                tintColor={searchIconColor}
+                type="monochrome"
+              />
+              <TextInput
+                accessibilityLabel="Search archived threads"
+                autoCapitalize="none"
+                onChangeText={props.onSearchQueryChange}
+                value={props.searchQuery}
+                placeholder="Search archived threads"
+                placeholderTextColorClassName="accent-placeholder"
+                className="flex-1 py-2 text-base font-sans text-foreground"
+              />
+            </View>
+            <ControlPillMenu
+              actions={androidFilterActions}
+              isAnchoredToRight
+              onPressAction={handleAndroidFilterAction}
+            >
+              <Pressable
+                accessibilityLabel="Filter and sort archived threads"
+                accessibilityRole="button"
+                className="size-11 items-center justify-center rounded-full bg-subtle"
+              >
+                <SymbolView
+                  name={
+                    hasCustomFilter
+                      ? "line.3.horizontal.decrease.circle.fill"
+                      : "line.3.horizontal.decrease.circle"
+                  }
+                  size={16}
+                  tintColor={searchIconColor}
+                  type="monochrome"
+                />
+              </Pressable>
+            </ControlPillMenu>
+          </View>
+        </View>
+      </>
+    );
+  }
   const archiveFilterMenu = {
     title: "Archived thread options",
     items: [
@@ -147,40 +268,39 @@ function ArchivedThreadsHeader(props: {
             : undefined,
           headerSearchBarOptions: usesCompactMailToolbar
             ? undefined
-            : Platform.OS === "android"
-              ? createAndroidStackedSearchBarOptions({
-                  autoCapitalize: "none",
-                  placeholder: "Search archived threads",
-                  onChangeText: props.onSearchQueryChange,
-                  onClear: () => {
-                    props.onSearchQueryChange("");
-                  },
-                })
-              : {
-                  allowToolbarIntegration: true,
-                  placement: "integratedButton" as const,
-                  autoCapitalize: "none",
-                  hideNavigationBar: false,
-                  obscureBackground: false,
-                  placeholder: "Search archived threads",
-                  onChangeText: (event) => {
-                    props.onSearchQueryChange(event.nativeEvent.text);
-                  },
-                  onCancelButtonPress: () => {
-                    props.onSearchQueryChange("");
-                  },
+            : {
+                ...(usesNativeChrome
+                  ? {
+                      allowToolbarIntegration: true,
+                      placement: "integratedButton" as const,
+                    }
+                  : {
+                      placement: "stacked" as const,
+                    }),
+                autoCapitalize: "none",
+                hideNavigationBar: false,
+                obscureBackground: false,
+                placeholder: "Search archived threads",
+                onChangeText: (event) => {
+                  props.onSearchQueryChange(event.nativeEvent.text);
                 },
+                onCancelButtonPress: () => {
+                  props.onSearchQueryChange("");
+                },
+              },
         }}
       />
 
       {usesCompactMailToolbar ? null : (
         <NativeHeaderToolbar placement="right">
-          <NativeHeaderToolbar.Button
-            accessibilityLabel="Refresh archived threads"
-            icon="arrow.clockwise"
-            onPress={props.onRefresh}
-            separateBackground
-          />
+          {usesNativeChrome ? (
+            <NativeHeaderToolbar.Button
+              accessibilityLabel="Refresh archived threads"
+              icon="arrow.clockwise"
+              onPress={props.onRefresh}
+              separateBackground
+            />
+          ) : null}
           <NativeHeaderToolbar.Menu
             accessibilityLabel="Filter and sort archived threads"
             icon={
@@ -280,20 +400,18 @@ function ArchivedThreadRow(props: {
   const subtitle = [props.environmentLabel, props.thread.branch].filter((part): part is string =>
     Boolean(part),
   );
-  const handleMenuAction = useCallback(
-    (event: { nativeEvent: { event: string } }) => {
-      if (event.nativeEvent.event === "unarchive") {
-        props.onUnarchive();
-      } else if (event.nativeEvent.event === "delete") {
-        props.onDelete();
-      }
-    },
-    [props.onDelete, props.onUnarchive],
-  );
-
   return (
     <ThreadSwipeable
       backgroundColor={cardColor}
+      // Round + clip the swipeable container so the group's corners stay
+      // rounded while rows swipe; the row itself stays square inside.
+      containerStyle={{
+        borderTopLeftRadius: props.isFirst ? 20 : 0,
+        borderTopRightRadius: props.isFirst ? 20 : 0,
+        borderBottomLeftRadius: props.isLast ? 20 : 0,
+        borderBottomRightRadius: props.isLast ? 20 : 0,
+        overflow: "hidden",
+      }}
       fullSwipeWidth={windowWidth - 32}
       onDelete={props.onDelete}
       onSwipeableClose={props.onSwipeableClose}
@@ -313,10 +431,6 @@ function ArchivedThreadRow(props: {
           style={{
             borderBottomColor: separatorColor,
             borderBottomWidth: props.isLast ? 0 : 1,
-            borderTopLeftRadius: props.isFirst ? 20 : 0,
-            borderTopRightRadius: props.isFirst ? 20 : 0,
-            borderBottomLeftRadius: props.isLast ? 20 : 0,
-            borderBottomRightRadius: props.isLast ? 20 : 0,
           }}
         >
           <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-subtle">
@@ -352,17 +466,6 @@ function ArchivedThreadRow(props: {
               </View>
             ) : null}
           </View>
-
-          <ControlPillMenu actions={THREAD_ACTIONS} onPressAction={handleMenuAction}>
-            <Pressable
-              accessibilityLabel={`Actions for ${props.thread.title}`}
-              accessibilityRole="button"
-              className="h-8 w-8 items-center justify-center rounded-full active:bg-subtle"
-              hitSlop={6}
-            >
-              <SymbolView name="ellipsis" size={16} tintColor={iconColor} type="monochrome" />
-            </Pressable>
-          </ControlPillMenu>
         </View>
       )}
     </ThreadSwipeable>
@@ -501,9 +604,10 @@ export function ArchivedThreadsScreen(props: {
   }, [isFiltered, isInitialLoad, refreshTint]);
 
   return (
-    <View className="flex-1 bg-sheet" testID="settings-archive-screen">
+    <View className="flex-1 bg-sheet">
       <ArchivedThreadsHeader
         environments={props.environments}
+        searchQuery={props.searchQuery}
         onEnvironmentChange={props.onEnvironmentChange}
         onRefresh={props.onRefresh}
         onSearchQueryChange={props.onSearchQueryChange}
