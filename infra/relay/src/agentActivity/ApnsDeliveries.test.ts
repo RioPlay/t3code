@@ -25,7 +25,6 @@ import {
 } from "./apnsDeliveryJobs.ts";
 import * as DeliveryAttempts from "./DeliveryAttempts.ts";
 import * as LiveActivities from "./LiveActivities.ts";
-import { testRelayConfiguration } from "../testRelayConfiguration.ts";
 import * as RelayConfiguration from "../Config.ts";
 import * as ApnsDeliveryQueue from "./ApnsDeliveryQueue.ts";
 import * as AgentActivityRows from "./AgentActivityRows.ts";
@@ -33,7 +32,8 @@ import * as ApnsDeliveries from "./ApnsDeliveries.ts";
 import * as ApnsClient from "./ApnsClient.ts";
 import * as ApnsProviderTokens from "./ApnsProviderTokens.ts";
 
-const config = testRelayConfiguration({
+const config = RelayConfiguration.RelayConfiguration.of({
+  relayIssuer: "https://relay.example.test",
   apns: {
     environment: "sandbox",
     teamId: "team-id",
@@ -43,8 +43,16 @@ const config = testRelayConfiguration({
   },
   fcm: null,
   fcmDeliveryEnabled: false,
-  fcmDeliveryJobSigningSecret: Redacted.make("fcm-job-secret"),
   apnsDeliveryJobSigningSecret: Redacted.make("job-signing-secret"),
+  fcmDeliveryJobSigningSecret: Redacted.make("fcm-job-signing-secret"),
+  clerkSecretKey: Redacted.make("clerk-secret"),
+  clerkPublishableKey: "pk_test_test",
+  clerkJwtAudience: "t3-code-relay",
+  cloudMintPrivateKey: Redacted.make("cloud-private-key"),
+  cloudMintPublicKey: "cloud-public-key",
+  managedEndpointBaseDomain: undefined,
+  managedEndpointNamespace: undefined,
+  stagingTestSecret: null,
 });
 
 const apnsSigningKeyPair = NodeCrypto.generateKeyPairSync("ec", {

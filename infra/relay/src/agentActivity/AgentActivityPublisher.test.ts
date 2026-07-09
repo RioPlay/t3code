@@ -5,9 +5,9 @@ import * as Layer from "effect/Layer";
 
 import * as AgentActivityRows from "./AgentActivityRows.ts";
 import * as EnvironmentLinks from "../environments/EnvironmentLinks.ts";
-import * as LiveActivities from "./LiveActivities.ts";
 import * as AgentActivityPublisher from "./AgentActivityPublisher.ts";
 import * as MobileDeliveries from "./MobileDeliveries.ts";
+import type { IosMobileTarget, MobileTarget } from "./mobileTargets.ts";
 
 const state: RelayAgentActivityState = {
   environmentId: "env" as RelayAgentActivityState["environmentId"],
@@ -21,7 +21,7 @@ const state: RelayAgentActivityState = {
   deepLink: "/threads/env/thread",
 };
 
-function target(deviceId: string): LiveActivities.TargetRow {
+function iosTarget(deviceId: string): IosMobileTarget {
   return {
     user_id: "dev:julius",
     device_id: deviceId,
@@ -42,17 +42,13 @@ function target(deviceId: string): LiveActivities.TargetRow {
   };
 }
 
-function makeLiveActivities(
-  overrides: Partial<LiveActivities.LiveActivities["Service"]> = {},
-): LiveActivities.LiveActivities["Service"] {
+function androidTarget(deviceId: string): MobileTarget {
   return {
-    register: () => Effect.void,
-    listTargets: () => Effect.succeed([]),
-    markDelivery: () => Effect.void,
-    markStartQueued: () => Effect.void,
-    clearStartQueued: () => Effect.void,
-    invalidateDeliveryToken: () => Effect.void,
-    ...overrides,
+    user_id: "dev:julius",
+    device_id: deviceId,
+    platform: "android",
+    push_token: "fcm-token",
+    preferences_json: "{}",
   };
 }
 
@@ -103,8 +99,8 @@ function makeMobileDeliveries(
 
 describe("AgentActivityPublisher", () => {
   it.effect("replays the latest aggregate when a Live Activity token registers", () => {
-    const registeredTarget: LiveActivities.TargetRow = {
-      ...target("device-1"),
+    const registeredTarget: IosMobileTarget = {
+      ...iosTarget("device-1"),
       push_to_start_token: null,
       activity_push_token: "activity-token",
       remote_start_queued_at: null,
@@ -136,11 +132,10 @@ describe("AgentActivityPublisher", () => {
               Layer.mergeAll(
                 Layer.succeed(AgentActivityRows.AgentActivityRows, makeAgentActivityRows()),
                 Layer.succeed(EnvironmentLinks.EnvironmentLinks, makeEnvironmentLinks()),
-                Layer.succeed(LiveActivities.LiveActivities, makeLiveActivities()),
                 Layer.succeed(
                   MobileDeliveries.MobileDeliveries,
                   makeMobileDeliveries({
-                    listTargets: () => Effect.succeed([registeredTarget, target("device-2")]),
+                    listTargets: () => Effect.succeed([registeredTarget, iosTarget("device-2")]),
                     sendForTarget: (input) =>
                       Effect.sync(() => {
                         sent.push(input);
@@ -170,9 +165,49 @@ describe("AgentActivityPublisher", () => {
     });
   });
 
-  it.effect("publishes listed targets through the APNs delivery service", () => {
-    const firstTarget = target("device-1");
-    const secondTarget = target("device-2");
+  it.effect("skips Live Activity replay for Android targets", () => {
+    const android = androidTarget("android-1");
+    let sendCalls = 0;
+
+    return Effect.gen(function* () {
+      const result = yield* Effect.gen(function* () {
+        const publisher = yield* AgentActivityPublisher.AgentActivityPublisher;
+        return yield* publisher.replayForLiveActivityRegistration({
+          userId: "dev:julius",
+          deviceId: "android-1",
+        });
+      }).pipe(
+        Effect.provide(
+          AgentActivityPublisher.layer.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                Layer.succeed(AgentActivityRows.AgentActivityRows, makeAgentActivityRows()),
+                Layer.succeed(EnvironmentLinks.EnvironmentLinks, makeEnvironmentLinks()),
+                Layer.succeed(
+                  MobileDeliveries.MobileDeliveries,
+                  makeMobileDeliveries({
+                    listTargets: () => Effect.succeed([android]),
+                    sendForTarget: () =>
+                      Effect.sync(() => {
+                        sendCalls += 1;
+                        return null;
+                      }),
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(result).toBeNull();
+      expect(sendCalls).toBe(0);
+    });
+  });
+
+  it.effect("publishes listed targets through the mobile delivery service", () => {
+    const firstTarget = iosTarget("device-1");
+    const secondTarget = iosTarget("device-2");
     const deliveryResult: RelayDeliveryResult = {
       deviceId: "device-1",
       kind: "live_activity_start",
@@ -228,7 +263,6 @@ describe("AgentActivityPublisher", () => {
                       }),
                   }),
                 ),
-                Layer.succeed(LiveActivities.LiveActivities, makeLiveActivities()),
                 Layer.succeed(
                   MobileDeliveries.MobileDeliveries,
                   makeMobileDeliveries({
@@ -304,14 +338,13 @@ describe("AgentActivityPublisher", () => {
                   }),
                 ),
                 Layer.succeed(EnvironmentLinks.EnvironmentLinks, makeEnvironmentLinks()),
-                Layer.succeed(LiveActivities.LiveActivities, makeLiveActivities()),
                 Layer.succeed(
                   MobileDeliveries.MobileDeliveries,
                   makeMobileDeliveries({
                     listTargets: () =>
                       Effect.succeed([
                         {
-                          ...target("device-1"),
+                          ...iosTarget("device-1"),
                           push_to_start_token: null,
                           activity_push_token: "activity-token",
                           remote_started_at: "1970-01-01T00:00:00.000Z",
@@ -414,14 +447,13 @@ describe("AgentActivityPublisher", () => {
                       ]),
                   }),
                 ),
-                Layer.succeed(LiveActivities.LiveActivities, makeLiveActivities()),
                 Layer.succeed(
                   MobileDeliveries.MobileDeliveries,
                   makeMobileDeliveries({
                     listTargets: () =>
                       Effect.succeed([
                         {
-                          ...target("device-1"),
+                          ...iosTarget("device-1"),
                           push_token: "apns-device-token",
                           push_to_start_token: null,
                         },
@@ -529,14 +561,13 @@ describe("AgentActivityPublisher", () => {
                         ]),
                     }),
                   ),
-                  Layer.succeed(LiveActivities.LiveActivities, makeLiveActivities()),
                   Layer.succeed(
                     MobileDeliveries.MobileDeliveries,
                     makeMobileDeliveries({
                       listTargets: () =>
                         Effect.succeed([
                           {
-                            ...target("device-1"),
+                            ...iosTarget("device-1"),
                             push_token: "apns-device-token",
                             push_to_start_token: "push-to-start-token",
                           },

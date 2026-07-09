@@ -2,6 +2,7 @@ import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Drizzle from "alchemy/Drizzle";
 import * as Config from "effect/Config";
+import * as DateTime from "effect/DateTime";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -53,6 +54,7 @@ import {
 import * as RelayConfiguration from "./Config.ts";
 import * as AgentActivityPublisher from "./agentActivity/AgentActivityPublisher.ts";
 import * as ApnsClient from "./agentActivity/ApnsClient.ts";
+import * as ApnsProviderTokens from "./agentActivity/ApnsProviderTokens.ts";
 import * as ApnsDeliveryQueue from "./agentActivity/ApnsDeliveryQueue.ts";
 import * as ApnsDeliveries from "./agentActivity/ApnsDeliveries.ts";
 import * as FcmDeliveryQueue from "./agentActivity/FcmDeliveryQueue.ts";
@@ -225,22 +227,11 @@ export default class Api extends Cloudflare.Worker<Api>()(
       }).pipe(Effect.map(makeRelayTraceLayer)),
     );
 
+    // Split pipe chains — Layer.empty.pipe is arity-capped (~20 args).
     const runtimeLayerCore = Layer.empty.pipe(
       Layer.provideMerge(MobileRegistrations.layer),
       Layer.provideMerge(AgentActivityPublisher.layer),
       Layer.provideMerge(MobileDeliveries.layer),
-      Layer.provideMerge(ApnsDeliveries.layer),
-      Layer.provideMerge(FcmDeliveries.layer),
-      Layer.provideMerge(ApnsClient.layer),
-      Layer.provideMerge(FcmClient.layer),
-      Layer.provideMerge(
-        ApnsDeliveryQueue.layerCloudflareQueues(apnsDeliveryQueueSender, alchemyRuntimeContext),
-      ),
-      Layer.provideMerge(
-        FcmDeliveryQueue.layerCloudflareQueues(fcmDeliveryQueueSender, alchemyRuntimeContext),
-      ),
-      Layer.provideMerge(LiveActivities.layer),
-      Layer.provideMerge(DeliveryAttempts.layer),
       Layer.provideMerge(EnvironmentConnector.layer),
       Layer.provideMerge(EnvironmentLinker.layer),
       Layer.provideMerge(EnvironmentPublishSignatures.layer),
@@ -252,10 +243,22 @@ export default class Api extends Cloudflare.Worker<Api>()(
         ),
       ),
       Layer.provideMerge(DpopProofs.layer),
+      Layer.provideMerge(ApnsDeliveries.layer),
+      Layer.provideMerge(FcmDeliveries.layer),
+      Layer.provideMerge(ApnsClient.layer.pipe(Layer.provideMerge(ApnsProviderTokens.layer))),
+      Layer.provideMerge(FcmClient.layer),
+      Layer.provideMerge(
+        ApnsDeliveryQueue.layerCloudflareQueues(apnsDeliveryQueueSender, alchemyRuntimeContext),
+      ),
+      Layer.provideMerge(
+        FcmDeliveryQueue.layerCloudflareQueues(fcmDeliveryQueueSender, alchemyRuntimeContext),
+      ),
       Layer.provideMerge(AgentActivityRows.layer),
       Layer.provideMerge(Devices.layer),
       Layer.provideMerge(EnvironmentCredentials.layer),
       Layer.provideMerge(Layer.mergeAll(EnvironmentLinks.layer, ManagedEndpointAllocations.layer)),
+      Layer.provideMerge(LiveActivities.layer),
+      Layer.provideMerge(DeliveryAttempts.layer),
     );
 
     const runtimeLayer = runtimeLayerCore.pipe(
@@ -270,25 +273,6 @@ export default class Api extends Cloudflare.Worker<Api>()(
       Layer.provideMerge(relayDpopClientAuthLayer),
       Layer.provideMerge(relayEnvironmentAuthLayer),
       Layer.provide(runtimeLayer),
-    );
-
-    yield* Cloudflare.messages<unknown>(fcmDeliveryQueue, {
-      batchSize: 10,
-      maxRetries: 5,
-      maxWaitTime: "5 seconds",
-      retryDelay: "30 seconds",
-      deadLetterQueue: fcmDeliveryDeadLetterQueue.queueName as unknown as string,
-    }).subscribe((stream) =>
-      stream.pipe(
-        Stream.withSpan("relay.fcm_delivery_queue.process_batch"),
-        Stream.runForEach((message) =>
-          FcmDeliveries.FcmDeliveries.pipe(
-            Effect.flatMap((deliveries) => deliveries.processSignedJob(message.body)),
-            Effect.withSpan("relay.fcm_delivery_queue.process_message"),
-          ),
-        ),
-        Effect.provide(runtimeLayer),
-      ),
     );
 
     yield* Cloudflare.messages<unknown>(apnsDeliveryQueue, {
@@ -311,10 +295,40 @@ export default class Api extends Cloudflare.Worker<Api>()(
       ),
     );
 
+    yield* Cloudflare.messages<unknown>(fcmDeliveryQueue, {
+      batchSize: 10,
+      maxRetries: 5,
+      maxWaitTime: "5 seconds",
+      retryDelay: "30 seconds",
+      deadLetterQueue: fcmDeliveryDeadLetterQueue.queueName as unknown as string,
+    }).subscribe((stream) =>
+      stream.pipe(
+        Stream.withSpan("relay.fcm_delivery_queue.process_batch"),
+        Stream.runForEach((message) =>
+          FcmDeliveries.FcmDeliveries.pipe(
+            Effect.flatMap((deliveries) => deliveries.processSignedJob(message.body)),
+            Effect.withSpan("relay.fcm_delivery_queue.process_message"),
+          ),
+        ),
+        Effect.provide(runtimeLayer),
+      ),
+    );
+
     yield* Cloudflare.cron("*/5 * * * *").subscribe(() =>
       DpopProofs.DpopProofReplay.pipe(
         Effect.flatMap((dpopProofs) => dpopProofs.pruneExpired),
-        Effect.withSpan("relay.cron.prune_expired_dpop_proofs"),
+        // Terminal thread rows are kept briefly so finished agents show as
+        // Done/Failed in the Live Activity; sweep them once they age out.
+        Effect.andThen(
+          Effect.all([AgentActivityRows.AgentActivityRows, DateTime.now]).pipe(
+            Effect.flatMap(([activityRows, now]) =>
+              activityRows.pruneTerminal({
+                updatedBefore: DateTime.formatIso(DateTime.subtract(now, { minutes: 30 })),
+              }),
+            ),
+          ),
+        ),
+        Effect.withSpan("relay.cron.prune_expired_state"),
         Effect.provide(runtimeLayer),
       ),
     );

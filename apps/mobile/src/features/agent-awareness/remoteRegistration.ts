@@ -828,7 +828,8 @@ function endLocalLiveActivities(context: string): void {
 }
 
 export function registerAgentAwarenessConnection(connection: SavedRemoteConnection): void {
-  if (!canRegisterRemoteLiveActivities()) {
+  // Device push registration is iOS+Android; Live Activity listeners stay iOS-only.
+  if (!canRegisterRemotePush()) {
     return;
   }
 

@@ -11,11 +11,7 @@ import * as ApnsDeliveries from "./ApnsDeliveries.ts";
 import * as Devices from "./Devices.ts";
 import * as FcmDeliveries from "./FcmDeliveries.ts";
 import * as LiveActivities from "./LiveActivities.ts";
-import {
-  isAndroidMobileTarget,
-  type AndroidMobileTarget,
-  type MobileTarget,
-} from "./mobileTargets.ts";
+import { isAndroidMobileTarget, type MobileTarget } from "./mobileTargets.ts";
 
 export type { AndroidMobileTarget, IosMobileTarget, MobileTarget } from "./mobileTargets.ts";
 export { isAndroidMobileTarget };
