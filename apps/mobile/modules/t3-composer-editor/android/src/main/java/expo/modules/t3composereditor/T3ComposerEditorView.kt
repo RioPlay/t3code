@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
@@ -37,6 +38,8 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
   private var requestedSelection: ComposerSelectionPayload? = null
   private var theme = ComposerThemePayload.fromJson(JSONObject())
   private var fontSize = 14f
+  private var fontSizePx = dipToPx(14f)
+  private var lineHeightPx = 0f
   private var fontFamily = "DMSans_400Regular"
 
   init {
@@ -135,14 +138,15 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
 
   fun setFontSize(fontSize: Float) {
     this.fontSize = fontSize
-    editText.textSize = fontSize
+    fontSizePx = dipToPx(fontSize)
+    editText.setTextSize(TypedValue.COMPLEX_UNIT_PX, fontSizePx)
+    applyLineHeight()
     applyControlledDocument(force = true)
   }
 
   fun setLineHeight(lineHeight: Float) {
-    val currentFontSize = editText.textSize
-    if (currentFontSize <= 0f) return
-    editText.setLineSpacing(lineHeight - currentFontSize, 1f)
+    lineHeightPx = dipToPx(lineHeight)
+    applyLineHeight()
   }
 
   fun setContentInsetVertical(contentInsetVertical: Float) {
@@ -335,5 +339,16 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
 
   private fun parseColor(value: String): Int {
     return runCatching { Color.parseColor(value) }.getOrDefault(Color.BLACK)
+  }
+
+  private fun applyLineHeight() {
+    if (fontSizePx <= 0f || lineHeightPx <= 0f) {
+      return
+    }
+    editText.setLineSpacing(lineHeightPx - fontSizePx, 1f)
+  }
+
+  private fun dipToPx(value: Float): Float {
+    return value * context.resources.displayMetrics.density
   }
 }
