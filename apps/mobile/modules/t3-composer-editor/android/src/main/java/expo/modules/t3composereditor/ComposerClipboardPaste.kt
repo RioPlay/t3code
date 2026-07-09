@@ -3,8 +3,6 @@ package expo.modules.t3composereditor
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.drawable.BitmapDrawable
-import android.net.Uri
 
 internal object ComposerClipboardPaste {
   fun hasPasteableImages(context: Context): Boolean {
@@ -22,24 +20,13 @@ internal object ComposerClipboardPaste {
     val uris = mutableListOf<String>()
     for (index in 0 until clip.itemCount) {
       val item = clip.getItemAt(index)
-      val bitmap =
-        when {
-          item.uri != null -> {
-            val mime = context.contentResolver.getType(item.uri) ?: ""
-            if (!mime.startsWith("image/")) {
-              null
-            } else {
-              ComposerPasteStorage.readBitmapFromUri(context, item.uri)
-            }
-          }
-          else -> {
-            val drawable = item.coerceToDrawable(context.resources)
-            if (drawable is BitmapDrawable) drawable.bitmap else null
-          }
-        }
-      if (bitmap != null) {
-        ComposerPasteStorage.writeTemporaryPng(context, bitmap)?.let { uris.add(it) }
+      val uri = item.uri ?: continue
+      val mime = context.contentResolver.getType(uri) ?: ""
+      if (!mime.startsWith("image/")) {
+        continue
       }
+      val bitmap = ComposerPasteStorage.readBitmapFromUri(context, uri) ?: continue
+      ComposerPasteStorage.writeTemporaryPng(context, bitmap)?.let { uris.add(it) }
     }
     return uris
   }
@@ -54,11 +41,8 @@ internal object ComposerClipboardPaste {
   }
 
   private fun isImageClipItem(context: Context, item: ClipData.Item): Boolean {
-    val uri = item.uri
-    if (uri != null) {
-      val mime = context.contentResolver.getType(uri) ?: return false
-      return mime.startsWith("image/")
-    }
-    return item.coerceToDrawable(context.resources) is BitmapDrawable
+    val uri = item.uri ?: return false
+    val mime = context.contentResolver.getType(uri) ?: return false
+    return mime.startsWith("image/")
   }
 }

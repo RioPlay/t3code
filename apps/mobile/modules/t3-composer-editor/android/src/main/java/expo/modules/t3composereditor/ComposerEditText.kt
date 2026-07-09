@@ -45,18 +45,12 @@ internal class ComposerEditText(
   override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
     val connection = super.onCreateInputConnection(outAttrs) ?: return null
     EditorInfoCompat.setContentMimeTypes(outAttrs, arrayOf("image/*", "image/png", "image/jpeg"))
-    val wrapped =
-      InputConnectionCompat.createWrapper(
-        ComposerChipInputConnection(connection, this),
-        outAttrs,
-      ) { _, inputContentInfo, _, _ ->
-        val uri = inputContentInfo.contentUri
-        val bitmap = ComposerPasteStorage.readBitmapFromUri(context, uri) ?: return@createWrapper false
-        val fileUri = ComposerPasteStorage.writeTemporaryPng(context, bitmap) ?: return@createWrapper false
-        onPasteImages?.invoke(listOf(fileUri))
-        true
-      }
-    return wrapped
+    // View-based wrapper routes IME image commits through OnReceiveContentListener.
+    return InputConnectionCompat.createWrapper(
+      this,
+      ComposerChipInputConnection(connection, this),
+      outAttrs,
+    )
   }
 
   fun deleteChipBeforeCursor(): Boolean {
@@ -107,11 +101,14 @@ internal class ComposerEditText(
 
   private fun readImageUrisFromContent(payload: ContentInfoCompat): List<String> {
     val clip = payload.clip
+    val description = clip.description
     val uris = mutableListOf<String>()
     for (index in 0 until clip.itemCount) {
       val item = clip.getItemAt(index)
       val uri = item.uri ?: continue
-      val mime = context.contentResolver.getType(uri) ?: payload.clipDescription.getMimeType(index)
+      val mime =
+        context.contentResolver.getType(uri)
+          ?: if (index < description.mimeTypeCount) description.getMimeType(index) else ""
       if (!mime.startsWith("image/")) {
         continue
       }

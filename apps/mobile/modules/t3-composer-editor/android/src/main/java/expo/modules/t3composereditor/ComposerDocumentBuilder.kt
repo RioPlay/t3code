@@ -34,7 +34,7 @@ internal object ComposerDocumentBuilder {
           fontSize = fontSize,
         )
       builder.setSpan(
-        ComposerChipSpan(token.source, drawable),
+        ComposerChipSpan(token.source, drawable), // chipSource
         start,
         start + 1,
         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -64,7 +64,7 @@ internal object ComposerDocumentBuilder {
       if (spanStart > cursor) {
         builder.append(text.subSequence(cursor, spanStart))
       }
-      builder.append(span.source)
+      builder.append(span.chipSource)
       cursor = spanEnd
     }
     if (cursor < text.length) {
@@ -95,7 +95,7 @@ internal object ComposerDocumentBuilder {
         continue
       }
       val span = spans[spanIndex]
-      sourceOffset += span.source.length
+      sourceOffset += span.chipSource.length
       displayCursor += text.getSpanEnd(span) - text.getSpanStart(span)
       spanIndex += 1
     }

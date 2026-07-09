@@ -68,12 +68,14 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
       }
     }
     editText.onSelectionChanged = { _, _ ->
-      if (applyingControlledDocument) return@onSelectionChanged
-      emitSelection()
+      if (!applyingControlledDocument) {
+        emitSelection()
+      }
     }
     editText.onPasteImages = { uris ->
-      if (uris.isEmpty()) return@onPasteImages
-      onComposerPasteImages(mapOf("uris" to uris))
+      if (uris.isNotEmpty()) {
+        onComposerPasteImages(mapOf("uris" to uris))
+      }
     }
     addView(editText)
   }
@@ -312,7 +314,7 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
     val renderedSources =
       text.getSpans(0, text.length, ComposerChipSpan::class.java)
         .sortedBy { text.getSpanStart(it) }
-        .map { it.source }
+        .map { it.chipSource }
     val expectedSources =
       validTokens(value, tokens).map { it.source }
     return renderedSources == expectedSources

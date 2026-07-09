@@ -6,7 +6,8 @@ import android.graphics.drawable.BitmapDrawable
 import android.text.style.ImageSpan
 
 internal class ComposerChipSpan(
-  val source: String,
+  /** Chip token text (not ImageSpan source URI — that overrides clash with getSource()). */
+  val chipSource: String,
   drawable: BitmapDrawable,
 ) : ImageSpan(drawable, ALIGN_BOTTOM) {
   override fun draw(
