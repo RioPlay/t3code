@@ -45,7 +45,9 @@ export default function App() {
       <MaestroAuthBypassBootstrap>
         <CloudAuthProvider>
           <AppearancePreferencesProvider>
-            <GestureHandlerRootView className="flex-1">
+            {/* Explicit flex:1 — GestureHandlerRootView is not a Uniwind-wrapped View,
+                so className alone can leave the root at zero height on Android release. */}
+            <GestureHandlerRootView className="flex-1" style={{ flex: 1 }}>
               <KeyboardProvider statusBarTranslucent>
                 <SafeAreaProvider>
                   <StatusBar
@@ -58,8 +60,11 @@ export default function App() {
                       this, React Navigation defaults to its light theme and every native
                       header (glass buttons, title, materials) is forced light even when
                       the system is in dark mode. */}
-                  {/* Blur target for Android dropdown backdrops — see appBlurTarget.ts. */}
-                  <BlurTargetView ref={appBlurTargetRef} className="flex-1">
+                  {/* Blur target for Android dropdown backdrops — see appBlurTarget.ts.
+                      Expo BlurTargetView is a native view, not Uniwind's View wrapper, so
+                      className="flex-1" is ignored and the entire app collapses to height 0
+                      (blank dark shell). style={{ flex: 1 }} is required. */}
+                  <BlurTargetView ref={appBlurTargetRef} className="flex-1" style={{ flex: 1 }}>
                     <Navigation
                       linking={appLinking}
                       theme={colorScheme === "dark" ? DarkTheme : DefaultTheme}
