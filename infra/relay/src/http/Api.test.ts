@@ -26,7 +26,6 @@ import {
   verifyRelayClientBearerToken,
   withoutCapturedParentSpan,
 } from "./Api.ts";
-import { testRelayConfiguration } from "../testRelayConfiguration.ts";
 import * as RelayConfiguration from "../Config.ts";
 import * as EnvironmentCredentials from "../environments/EnvironmentCredentials.ts";
 

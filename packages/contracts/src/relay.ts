@@ -14,6 +14,9 @@ import { ExecutionEnvironmentDescriptor } from "./environment.ts";
 export const RelayAgentAwarenessPlatform = Schema.Literals(["ios", "android"]);
 export type RelayAgentAwarenessPlatform = typeof RelayAgentAwarenessPlatform.Type;
 
+export const RelayApnsEnvironment = Schema.Literals(["sandbox", "production"]);
+export type RelayApnsEnvironment = typeof RelayApnsEnvironment.Type;
+
 export const RelayAgentAwarenessPhase = Schema.Literals([
   "starting",
   "running",
@@ -47,6 +50,12 @@ export const RelayIosDeviceRegistrationRequest = Schema.Struct({
   ...RelayDeviceRegistrationBase,
   platform: Schema.Literal("ios"),
   iosMajorVersion: Schema.Int.check(Schema.isGreaterThanOrEqualTo(18)),
+  // APNs routing for this install: the topic must match the app's bundle id
+  // (dev/preview/prod variants differ) and development-signed builds receive
+  // sandbox tokens. Optional so older app builds keep registering; the relay
+  // falls back to its configured defaults.
+  bundleId: Schema.optional(TrimmedNonEmptyString),
+  apsEnvironment: Schema.optional(RelayApnsEnvironment),
   pushToStartToken: Schema.optional(TrimmedNonEmptyString),
 });
 export type RelayIosDeviceRegistrationRequest = typeof RelayIosDeviceRegistrationRequest.Type;

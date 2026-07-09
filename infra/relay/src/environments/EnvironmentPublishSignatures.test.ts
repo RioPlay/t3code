@@ -16,7 +16,6 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import * as DpopProofs from "../auth/DpopProofs.ts";
-import { testRelayConfiguration } from "../testRelayConfiguration.ts";
 import * as RelayConfiguration from "../Config.ts";
 import * as EnvironmentPublishSignatures from "./EnvironmentPublishSignatures.ts";
 

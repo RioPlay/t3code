@@ -19,7 +19,7 @@ import {
   type FcmDeliveryJobVerificationError,
 } from "./fcmDeliveryJobs.ts";
 import * as DeliveryAttempts from "./DeliveryAttempts.ts";
-import * as Fcm from "./FcmClient.ts";
+import * as FcmClient from "./FcmClient.ts";
 import * as FcmDeliveryQueue from "./FcmDeliveryQueue.ts";
 import * as LiveActivities from "./LiveActivities.ts";
 import type { AndroidMobileTarget } from "./mobileTargets.ts";
@@ -91,7 +91,7 @@ function staleJobResult(deviceId: string): RelayDeliveryResult {
   };
 }
 
-function isPermanentFcmTokenFailure(result: Fcm.FcmDeliveryResult): boolean {
+function isPermanentFcmTokenFailure(result: FcmClient.FcmDeliveryResult): boolean {
   return (
     !result.ok &&
     (result.status === 404 ||
@@ -99,7 +99,7 @@ function isPermanentFcmTokenFailure(result: Fcm.FcmDeliveryResult): boolean {
   );
 }
 
-function deliveryAttemptOutcome(result: Fcm.FcmDeliveryResult) {
+function deliveryAttemptOutcome(result: FcmClient.FcmDeliveryResult) {
   return {
     ...(result.status === 0 ? {} : { apnsStatus: result.status }),
     ...(result.reason === undefined ? {} : { apnsReason: result.reason }),
@@ -113,8 +113,8 @@ const recoverFcmDeliveryTransportError = (
     readonly deviceId: string;
     readonly sourceJobId: string | null;
   },
-  cause: Fcm.FcmError,
-): Effect.Effect<Fcm.FcmDeliveryResult> => {
+  cause: FcmClient.FcmError,
+): Effect.Effect<FcmClient.FcmDeliveryResult> => {
   const error = new FcmDeliveryTransportError({
     deviceId: input.deviceId,
     sourceJobId: input.sourceJobId,
@@ -172,7 +172,7 @@ export const make = Effect.gen(function* () {
   const devices = yield* Devices.Devices;
   const deliveryQueue = yield* FcmDeliveryQueue.FcmDeliveryQueue;
   const config = yield* RelayConfiguration.RelayConfiguration;
-  const fcm = yield* Fcm.FcmClient;
+  const fcm = yield* FcmClient.FcmClient;
 
   const fcmDeliveryEnabled =
     config.fcmDeliveryEnabled &&
@@ -225,7 +225,7 @@ export const make = Effect.gen(function* () {
       channelId: input.channelId,
     });
 
-    const recoverTransportError = (cause: Fcm.FcmError) =>
+    const recoverTransportError = (cause: FcmClient.FcmError) =>
       recoverFcmDeliveryTransportError(
         {
           deviceId: input.target.device_id,
@@ -278,6 +278,8 @@ export const make = Effect.gen(function* () {
       );
 
     if (isPermanentFcmTokenFailure(result)) {
+      // Shared with APNs: push_notification invalidation clears relay_mobile_devices.push_token
+      // (same table Android uses). LiveActivities owns that write path.
       yield* liveActivities.invalidateDeliveryToken({
         userId: input.target.user_id,
         deviceId: input.target.device_id,

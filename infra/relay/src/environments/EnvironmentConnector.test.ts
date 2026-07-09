@@ -28,7 +28,6 @@ import * as Tracer from "effect/Tracer";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import * as EnvironmentLinks from "./EnvironmentLinks.ts";
-import { testRelayConfiguration } from "../testRelayConfiguration.ts";
 import * as RelayConfiguration from "../Config.ts";
 import * as EnvironmentConnector from "./EnvironmentConnector.ts";
 import * as ManagedEndpointAllocations from "./ManagedEndpointAllocations.ts";
