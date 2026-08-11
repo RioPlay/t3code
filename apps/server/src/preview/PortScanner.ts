@@ -5,8 +5,12 @@
  * stable line-prefixed field format; this is the only `lsof` flag set we rely
  * on).
  *
- * Windows / lsof missing: checks a curated list of common dev ports through
- * the shared Net service.
+ * Windows: PowerShell lists listening sockets (one PID→name map per probe).
+ * On timeout, fall back to the curated common-port list and cool the probe
+ * briefly so a doomed WMI query is not re-spawned every poll (#5900).
+ *
+ * lsof missing / probe failed: checks a curated list of common dev ports
+ * through the shared Net service.
  *
  * Polling is reference-counted via scoped `retain`. A single layer-scoped fiber
  * polls forever, but each tick is a no-op when the retain count is zero.
@@ -53,6 +57,15 @@ export const COMMON_DEV_PORTS: ReadonlyArray<number> = Object.freeze([
 const POLL_INTERVAL = Duration.seconds(3);
 const LSOF_TIMEOUT_MS = 5_000;
 const WINDOWS_LISTENER_TIMEOUT_MS = 5_000;
+/** After a timeout, skip the expensive probe for this many poll ticks (~60s). */
+const WINDOWS_LISTENER_TIMEOUT_COOLDOWN_TICKS = 20;
+
+/**
+ * Windows listener probe command. Builds the process-name map once; per-listener
+ * `Get-Process -Id` was the cost that made this miss its 5s timeout (#5900).
+ */
+export const WINDOWS_LISTENER_COMMAND =
+  '$m = @{}; Get-Process | ForEach-Object { $m[$_.Id] = $_.ProcessName }; Get-NetTCPConnection -State Listen -ErrorAction Stop | ForEach-Object { Write-Output "$($_.LocalAddress)|$($_.LocalPort)|$($_.OwningProcess)|$($m[[int]$_.OwningProcess])" }';
 
 type Listener = (servers: ReadonlyArray<DiscoveredLocalServer>) => Effect.Effect<void>;
 
@@ -67,6 +80,8 @@ interface ScannerState {
     }
   >;
   readonly retainCount: number;
+  /** Poll ticks remaining before the Windows listener probe is tried again. */
+  readonly windowsListenerCooldownTicks: number;
 }
 
 interface TerminalProcessOwner {
@@ -195,6 +210,7 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
     listeners: new Set(),
     terminalProcesses: new Map(),
     retainCount: 0,
+    windowsListenerCooldownTicks: 0,
   });
 
   const probeCommonPorts = Effect.fn("PortDiscovery.probeCommonPorts")(function* () {
@@ -238,13 +254,21 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
       }
     }
     if (hostPlatform === "win32") {
+      // A probe that just timed out will time out again until the machine
+      // cools off; skip it for a while and use the cheap common-port path.
+      if (state.windowsListenerCooldownTicks > 0) {
+        yield* Ref.update(stateRef, (current) => ({
+          ...current,
+          windowsListenerCooldownTicks: Math.max(0, current.windowsListenerCooldownTicks - 1),
+        }));
+        return yield* probeCommonPorts();
+      }
+
       const recoverWindowsProbeFailure = recoverProcessProbeFailure("windows-listeners");
-      const command =
-        'Get-NetTCPConnection -State Listen -ErrorAction Stop | ForEach-Object { $processName = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName; Write-Output "$($_.LocalAddress)|$($_.LocalPort)|$($_.OwningProcess)|$processName" }';
       const listeners = yield* processRunner
         .run({
           command: "powershell.exe",
-          args: ["-NoProfile", "-NonInteractive", "-Command", command],
+          args: ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_LISTENER_COMMAND],
           timeout: Duration.millis(WINDOWS_LISTENER_TIMEOUT_MS),
           maxOutputBytes: 1024 * 1024,
           outputMode: "truncate",
@@ -256,7 +280,11 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
             ProcessStdinError: recoverWindowsProbeFailure,
             ProcessOutputLimitError: recoverWindowsProbeFailure,
             ProcessReadError: recoverWindowsProbeFailure,
-            ProcessTimeoutError: recoverWindowsProbeFailure,
+            ProcessTimeoutError: (error) =>
+              Ref.update(stateRef, (current) => ({
+                ...current,
+                windowsListenerCooldownTicks: WINDOWS_LISTENER_TIMEOUT_COOLDOWN_TICKS,
+              })).pipe(Effect.zipRight(recoverWindowsProbeFailure(error))),
           }),
         );
       if (listeners !== null) return listeners;
