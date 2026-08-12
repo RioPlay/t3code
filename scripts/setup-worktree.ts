@@ -23,7 +23,8 @@ export type EnvLinkResult =
   | "linked"
   | "copied"
   | "skipped-same-path"
-  | "skipped-missing-source";
+  | "skipped-missing-source"
+  | "skipped-not-a-file";
 
 export const ENV_LINK_RELATIVE_PATHS = [".env", NodePath.join("infra", "relay", ".env")] as const;
 
@@ -35,6 +36,15 @@ export function resolveWorktreePaths(env: NodeJS.ProcessEnv = NodeProcess.env): 
     projectRoot: env.T3CODE_PROJECT_ROOT || undefined,
     worktree: env.T3CODE_WORKTREE_PATH || NodeProcess.cwd(),
   };
+}
+
+/** Resolve through symlinks/junctions when the path exists; else lexical resolve. */
+export function resolvePathIdentity(path: string): string {
+  try {
+    return NodeFs.realpathSync(path);
+  } catch {
+    return NodePath.resolve(path);
+  }
 }
 
 /**
@@ -50,11 +60,18 @@ export function linkOrCopyEnvFile(input: {
 }): EnvLinkResult {
   const source = NodePath.join(input.projectRoot, input.relativePath);
   const destination = NodePath.join(input.worktree, input.relativePath);
-  if (NodePath.resolve(source) === NodePath.resolve(destination)) {
+  // realpath so a worktree that is a symlink/junction to the project root is
+  // treated as the same path (resolve alone does not follow links).
+  if (resolvePathIdentity(source) === resolvePathIdentity(destination)) {
     return "skipped-same-path";
   }
   if (!NodeFs.existsSync(source)) {
     return "skipped-missing-source";
+  }
+  // Directories (or other non-files) must not be linked/copied over a .env —
+  // on POSIX, symlinkSync to a directory would otherwise "succeed".
+  if (!NodeFs.statSync(source).isFile()) {
+    return "skipped-not-a-file";
   }
 
   const destinationDir = NodePath.dirname(destination);

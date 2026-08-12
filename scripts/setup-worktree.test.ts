@@ -92,26 +92,54 @@ describe("setup-worktree", () => {
     }
   });
 
-  it("keeps the worktree env file when staging the replacement fails", () => {
-    const root = makeTempDir("setup-worktree-fail-root-");
-    const worktree = makeTempDir("setup-worktree-fail-wt-");
+  it("skips when worktree is a symlink/junction to the project root", () => {
+    const root = makeTempDir("setup-worktree-alias-root-");
+    const parent = makeTempDir("setup-worktree-alias-parent-");
+    const alias = NodePath.join(parent, "wt-alias");
     try {
-      // Source path exists but is a directory so symlink("file")/copyFile both fail.
+      NodeFs.writeFileSync(NodePath.join(root, ".env"), "ROOT=1\n", "utf8");
+      try {
+        NodeFs.symlinkSync(root, alias, "junction");
+      } catch {
+        // Junction/symlink may be denied; skip this platform-specific case.
+        return;
+      }
+      expect(
+        linkOrCopyEnvFile({
+          projectRoot: root,
+          worktree: alias,
+          relativePath: ".env",
+        }),
+      ).toBe("skipped-same-path");
+      // Must not have replaced root/.env with a self-link/copy mess.
+      expect(NodeFs.readFileSync(NodePath.join(root, ".env"), "utf8")).toBe("ROOT=1\n");
+    } finally {
+      NodeFs.rmSync(alias, { force: true });
+      NodeFs.rmSync(root, { recursive: true, force: true });
+      NodeFs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  it("skips non-file sources without touching the worktree env", () => {
+    const root = makeTempDir("setup-worktree-dir-root-");
+    const worktree = makeTempDir("setup-worktree-dir-wt-");
+    try {
       NodeFs.mkdirSync(NodePath.join(root, ".env"));
       const destination = NodePath.join(worktree, ".env");
       NodeFs.writeFileSync(destination, "LOCAL=1\n", "utf8");
 
-      expect(() =>
+      expect(
         linkOrCopyEnvFile({
           projectRoot: root,
           worktree,
           relativePath: ".env",
         }),
-      ).toThrow();
+      ).toBe("skipped-not-a-file");
       expect(NodeFs.readFileSync(destination, "utf8")).toBe("LOCAL=1\n");
     } finally {
       NodeFs.rmSync(root, { recursive: true, force: true });
       NodeFs.rmSync(worktree, { recursive: true, force: true });
     }
   });
+
 });
