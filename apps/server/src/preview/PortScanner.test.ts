@@ -316,3 +316,62 @@ effectIt("does not swallow process probe interruption", () =>
     }
   }),
 );
+
+effectIt("clears Windows listener probe in-flight flag after interruption", () =>
+  Effect.gen(function* () {
+    let probeRuns = 0;
+    const layer = PortScanner.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(ProcessRunner.ProcessRunner, {
+            run: () => {
+              probeRuns += 1;
+              if (probeRuns === 1) {
+                return Effect.interrupt;
+              }
+              return Effect.succeed({
+                stdout: "127.0.0.1|5173|4242|node\n",
+                stderr: "",
+                code: 0,
+                timedOut: false,
+                stdoutTruncated: false,
+                stderrTruncated: false,
+                stdoutInvalidUtf8: false,
+                stderrInvalidUtf8: false,
+              });
+            },
+          }),
+          Layer.succeed(Net.NetService, {
+            canListenOnHost: () => Effect.succeed(true),
+            isPortAvailableOnLoopback: () => Effect.succeed(true),
+            reserveLoopbackPort: () => Effect.succeed(40_000),
+            findAvailablePort: (preferred) => Effect.succeed(preferred),
+          }),
+          Layer.succeed(HostProcessPlatform, "win32"),
+        ),
+      ),
+    );
+
+    yield* Effect.gen(function* () {
+      const scanner = yield* PortScanner.PortDiscovery;
+      const first = yield* scanner.scan().pipe(Effect.exit);
+      expect(Exit.isFailure(first)).toBe(true);
+      if (Exit.isFailure(first)) {
+        expect(Cause.hasInterruptsOnly(first.cause)).toBe(true);
+      }
+      // Release must clear inFlight; otherwise every later scan would skip.
+      const second = yield* scanner.scan();
+      expect(probeRuns).toBe(2);
+      expect(second).toEqual([
+        {
+          host: "localhost",
+          port: 5173,
+          url: "http://localhost:5173",
+          processName: "node",
+          pid: 4242,
+          terminal: null,
+        },
+      ]);
+    }).pipe(Effect.provide(layer), Effect.scoped);
+  }),
+);

@@ -287,32 +287,40 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
     if (hostPlatform === "win32") {
       // Wall-clock cooldown + single-flight so retain/scan/poll cannot burn a
       // tick budget or spawn overlapping PowerShell/WMI probes (#5900).
-      const gate = yield* claimWindowsListenerProbe;
-      if (gate === "skip") {
-        return yield* probeCommonPorts();
-      }
-
+      // acquireUseRelease (not claim + later ensuring): if the fiber is
+      // interrupted after claim and before ensuring is installed, inFlight
+      // would stick true and every later scan would skip forever.
       const recoverWindowsProbeFailure = recoverProcessProbeFailure("windows-listeners");
-      const listeners = yield* processRunner
-        .run({
-          command: "powershell.exe",
-          args: ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_LISTENER_COMMAND],
-          timeout: Duration.millis(WINDOWS_LISTENER_TIMEOUT_MS),
-          maxOutputBytes: 1024 * 1024,
-          outputMode: "truncate",
-        })
-        .pipe(
-          Effect.map((result) => parseWindowsListenerOutput(result.stdout, terminalByProcessId)),
-          Effect.catchTags({
-            ProcessSpawnError: recoverWindowsProbeFailure,
-            ProcessStdinError: recoverWindowsProbeFailure,
-            ProcessOutputLimitError: recoverWindowsProbeFailure,
-            ProcessReadError: recoverWindowsProbeFailure,
-            ProcessTimeoutError: (error) =>
-              armWindowsListenerCooldown.pipe(Effect.zipRight(recoverWindowsProbeFailure(error))),
-          }),
-          Effect.ensuring(releaseWindowsListenerProbe),
-        );
+      const listeners = yield* Effect.acquireUseRelease(
+        claimWindowsListenerProbe,
+        (gate) => {
+          if (gate === "skip") {
+            return Effect.succeed(null);
+          }
+          return processRunner
+            .run({
+              command: "powershell.exe",
+              args: ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_LISTENER_COMMAND],
+              timeout: Duration.millis(WINDOWS_LISTENER_TIMEOUT_MS),
+              maxOutputBytes: 1024 * 1024,
+              outputMode: "truncate",
+            })
+            .pipe(
+              Effect.map((result) => parseWindowsListenerOutput(result.stdout, terminalByProcessId)),
+              Effect.catchTags({
+                ProcessSpawnError: recoverWindowsProbeFailure,
+                ProcessStdinError: recoverWindowsProbeFailure,
+                ProcessOutputLimitError: recoverWindowsProbeFailure,
+                ProcessReadError: recoverWindowsProbeFailure,
+                ProcessTimeoutError: (error) =>
+                  armWindowsListenerCooldown.pipe(
+                    Effect.zipRight(recoverWindowsProbeFailure(error)),
+                  ),
+              }),
+            );
+        },
+        (gate) => (gate === "run" ? releaseWindowsListenerProbe : Effect.void),
+      );
       if (listeners !== null) return listeners;
       return yield* probeCommonPorts();
     }
