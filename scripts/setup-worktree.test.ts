@@ -91,4 +91,27 @@ describe("setup-worktree", () => {
       NodeFs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("keeps the worktree env file when staging the replacement fails", () => {
+    const root = makeTempDir("setup-worktree-fail-root-");
+    const worktree = makeTempDir("setup-worktree-fail-wt-");
+    try {
+      // Source path exists but is a directory so symlink("file")/copyFile both fail.
+      NodeFs.mkdirSync(NodePath.join(root, ".env"));
+      const destination = NodePath.join(worktree, ".env");
+      NodeFs.writeFileSync(destination, "LOCAL=1\n", "utf8");
+
+      expect(() =>
+        linkOrCopyEnvFile({
+          projectRoot: root,
+          worktree,
+          relativePath: ".env",
+        }),
+      ).toThrow();
+      expect(NodeFs.readFileSync(destination, "utf8")).toBe("LOCAL=1\n");
+    } finally {
+      NodeFs.rmSync(root, { recursive: true, force: true });
+      NodeFs.rmSync(worktree, { recursive: true, force: true });
+    }
+  });
 });

@@ -40,7 +40,8 @@ export function resolveWorktreePaths(env: NodeJS.ProcessEnv = NodeProcess.env): 
 /**
  * Link `projectRoot/relativePath` into the worktree. Never deletes the
  * destination when the source is missing (avoids wiping a local file if the
- * root has no `.env` yet).
+ * root has no `.env` yet). Staging + rename keeps a locally edited worktree
+ * file if symlink/copy fails mid-flight.
  */
 export function linkOrCopyEnvFile(input: {
   readonly projectRoot: string;
@@ -56,15 +57,65 @@ export function linkOrCopyEnvFile(input: {
     return "skipped-missing-source";
   }
 
-  NodeFs.mkdirSync(NodePath.dirname(destination), { recursive: true });
-  NodeFs.rmSync(destination, { force: true });
+  const destinationDir = NodePath.dirname(destination);
+  NodeFs.mkdirSync(destinationDir, { recursive: true });
+
+  // Same directory as destination so rename is same-volume (atomic on POSIX;
+  // on Windows we still only remove the old file after staging succeeds).
+  const staging = NodePath.join(
+    destinationDir,
+    `.${NodePath.basename(destination)}.${NodeProcess.pid}.${Date.now()}.tmp`,
+  );
+  const backup = `${staging}.bak`;
+
+  let result: "linked" | "copied";
   try {
-    NodeFs.symlinkSync(source, destination, "file");
-    return "linked";
-  } catch {
-    NodeFs.copyFileSync(source, destination);
-    console.log(`[setup-worktree] copied ${input.relativePath} (symlink unavailable)`);
-    return "copied";
+    try {
+      NodeFs.symlinkSync(source, staging, "file");
+      result = "linked";
+    } catch {
+      NodeFs.copyFileSync(source, staging);
+      result = "copied";
+      console.log(`[setup-worktree] copied ${input.relativePath} (symlink unavailable)`);
+    }
+
+    let hadDestination = false;
+    try {
+      NodeFs.renameSync(destination, backup);
+      hadDestination = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+
+    try {
+      NodeFs.renameSync(staging, destination);
+    } catch (error) {
+      if (hadDestination) {
+        try {
+          NodeFs.renameSync(backup, destination);
+        } catch {
+          // Leave backup on disk for manual recovery.
+        }
+      }
+      throw error;
+    }
+
+    if (hadDestination) {
+      NodeFs.rmSync(backup, { force: true });
+    }
+    return result;
+  } catch (error) {
+    NodeFs.rmSync(staging, { force: true });
+    if (NodeFs.existsSync(backup) && !NodeFs.existsSync(destination)) {
+      try {
+        NodeFs.renameSync(backup, destination);
+      } catch {
+        // Leave backup on disk for manual recovery.
+      }
+    }
+    throw error;
   }
 }
 
