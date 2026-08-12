@@ -6,8 +6,9 @@
  * on).
  *
  * Windows: PowerShell lists listening sockets (one PID→name map per probe).
- * On timeout, fall back to the curated common-port list and cool the probe
- * briefly so a doomed WMI query is not re-spawned every poll (#5900).
+ * On timeout, fall back to common ports for a wall-clock cool-off and only one
+ * PowerShell probe runs at a time so retain/scan/poll cannot stack WMI work
+ * (#5900).
  *
  * lsof missing / probe failed: checks a curated list of common dev ports
  * through the shared Net service.
@@ -57,8 +58,8 @@ export const COMMON_DEV_PORTS: ReadonlyArray<number> = Object.freeze([
 const POLL_INTERVAL = Duration.seconds(3);
 const LSOF_TIMEOUT_MS = 5_000;
 const WINDOWS_LISTENER_TIMEOUT_MS = 5_000;
-/** After a timeout, skip the expensive probe for this many poll ticks (~60s). */
-const WINDOWS_LISTENER_TIMEOUT_COOLDOWN_TICKS = 20;
+/** After a timeout, skip PowerShell and use common ports until this many ms pass. */
+const WINDOWS_LISTENER_COOLDOWN_MS = 60_000;
 
 /**
  * Windows listener probe command. Builds the process-name map once; per-listener
@@ -68,6 +69,8 @@ export const WINDOWS_LISTENER_COMMAND =
   '$m = @{}; Get-Process | ForEach-Object { $m[$_.Id] = $_.ProcessName }; Get-NetTCPConnection -State Listen -ErrorAction Stop | ForEach-Object { Write-Output "$($_.LocalAddress)|$($_.LocalPort)|$($_.OwningProcess)|$($m[[int]$_.OwningProcess])" }';
 
 type Listener = (servers: ReadonlyArray<DiscoveredLocalServer>) => Effect.Effect<void>;
+
+type WindowsListenerProbeGate = "run" | "skip";
 
 interface ScannerState {
   readonly lastSnapshot: ReadonlyArray<DiscoveredLocalServer>;
@@ -80,8 +83,13 @@ interface ScannerState {
     }
   >;
   readonly retainCount: number;
-  /** Poll ticks remaining before the Windows listener probe is tried again. */
-  readonly windowsListenerCooldownTicks: number;
+  /**
+   * Epoch ms. While `Date.now() < this`, skip PowerShell and use common ports.
+   * Wall-clock so retain/scan/poll cannot burn a tick budget early.
+   */
+  readonly windowsListenerCooldownUntilMs: number;
+  /** Single-flight: only one PowerShell listener probe at a time. */
+  readonly windowsListenerProbeInFlight: boolean;
 }
 
 interface TerminalProcessOwner {
@@ -210,7 +218,8 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
     listeners: new Set(),
     terminalProcesses: new Map(),
     retainCount: 0,
-    windowsListenerCooldownTicks: 0,
+    windowsListenerCooldownUntilMs: 0,
+    windowsListenerProbeInFlight: false,
   });
 
   const probeCommonPorts = Effect.fn("PortDiscovery.probeCommonPorts")(function* () {
@@ -245,6 +254,28 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
         platform: hostPlatform,
       }).pipe(Effect.as(null));
 
+  const claimWindowsListenerProbe = Ref.modify(stateRef, (current) => {
+    const now = Date.now();
+    if (now < current.windowsListenerCooldownUntilMs || current.windowsListenerProbeInFlight) {
+      return ["skip", current] as const satisfies readonly [WindowsListenerProbeGate, ScannerState];
+    }
+    return [
+      "run",
+      { ...current, windowsListenerProbeInFlight: true },
+    ] as const satisfies readonly [WindowsListenerProbeGate, ScannerState];
+  });
+
+  const releaseWindowsListenerProbe = Ref.update(stateRef, (current) =>
+    current.windowsListenerProbeInFlight
+      ? { ...current, windowsListenerProbeInFlight: false }
+      : current,
+  );
+
+  const armWindowsListenerCooldown = Ref.update(stateRef, (current) => ({
+    ...current,
+    windowsListenerCooldownUntilMs: Date.now() + WINDOWS_LISTENER_COOLDOWN_MS,
+  }));
+
   const scanOnce = Effect.fn("PortDiscovery.scan")(function* () {
     const state = yield* Ref.get(stateRef);
     const terminalByProcessId = new Map<number, TerminalProcessOwner>();
@@ -254,13 +285,10 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
       }
     }
     if (hostPlatform === "win32") {
-      // A probe that just timed out will time out again until the machine
-      // cools off; skip it for a while and use the cheap common-port path.
-      if (state.windowsListenerCooldownTicks > 0) {
-        yield* Ref.update(stateRef, (current) => ({
-          ...current,
-          windowsListenerCooldownTicks: Math.max(0, current.windowsListenerCooldownTicks - 1),
-        }));
+      // Wall-clock cooldown + single-flight so retain/scan/poll cannot burn a
+      // tick budget or spawn overlapping PowerShell/WMI probes (#5900).
+      const gate = yield* claimWindowsListenerProbe;
+      if (gate === "skip") {
         return yield* probeCommonPorts();
       }
 
@@ -281,11 +309,9 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
             ProcessOutputLimitError: recoverWindowsProbeFailure,
             ProcessReadError: recoverWindowsProbeFailure,
             ProcessTimeoutError: (error) =>
-              Ref.update(stateRef, (current) => ({
-                ...current,
-                windowsListenerCooldownTicks: WINDOWS_LISTENER_TIMEOUT_COOLDOWN_TICKS,
-              })).pipe(Effect.zipRight(recoverWindowsProbeFailure(error))),
+              armWindowsListenerCooldown.pipe(Effect.zipRight(recoverWindowsProbeFailure(error))),
           }),
+          Effect.ensuring(releaseWindowsListenerProbe),
         );
       if (listeners !== null) return listeners;
       return yield* probeCommonPorts();

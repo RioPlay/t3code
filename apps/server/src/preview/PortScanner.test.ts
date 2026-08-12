@@ -207,11 +207,77 @@ effectIt("Windows listener probe cools down after a timeout", () =>
 
     yield* Effect.gen(function* () {
       const scanner = yield* PortScanner.PortDiscovery;
-      // First scan hits the probe and records a cooldown.
+      // First scan hits the probe and records a wall-clock cooldown.
       yield* scanner.scan();
       expect(probeRuns).toBe(1);
-      // Immediate re-scan must use the common-port fallback, not re-spawn PowerShell.
+      // Immediate re-scans (retain, subscribe, poll) must not re-spawn PowerShell.
       yield* scanner.scan();
+      yield* scanner.scan();
+      expect(probeRuns).toBe(1);
+    }).pipe(Effect.provide(layer), Effect.scoped);
+  }),
+);
+
+effectIt("Windows listener probe is single-flight under concurrent scan()", () =>
+  Effect.gen(function* () {
+    let probeRuns = 0;
+    let releaseProbe: (() => void) | undefined;
+    const probeGate = new Promise<void>((resolve) => {
+      releaseProbe = resolve;
+    });
+    const layer = PortScanner.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(ProcessRunner.ProcessRunner, {
+            run: () => {
+              probeRuns += 1;
+              return Effect.tryPromise({
+                try: async () => {
+                  await probeGate;
+                  return {
+                    stdout: "127.0.0.1|5173|4242|node\n",
+                    stderr: "",
+                    code: 0,
+                    timedOut: false,
+                    stdoutTruncated: false,
+                    stderrTruncated: false,
+                    stdoutInvalidUtf8: false,
+                    stderrInvalidUtf8: false,
+                  };
+                },
+                catch: (cause) =>
+                  new ProcessRunner.ProcessReadError({
+                    command: "powershell.exe",
+                    argumentCount: 4,
+                    stream: "stdout",
+                    cause,
+                  }),
+              });
+            },
+          }),
+          Layer.succeed(Net.NetService, {
+            canListenOnHost: () => Effect.succeed(true),
+            isPortAvailableOnLoopback: () => Effect.succeed(true),
+            reserveLoopbackPort: () => Effect.succeed(40_000),
+            findAvailablePort: (preferred) => Effect.succeed(preferred),
+          }),
+          Layer.succeed(HostProcessPlatform, "win32"),
+        ),
+      ),
+    );
+
+    yield* Effect.gen(function* () {
+      const scanner = yield* PortScanner.PortDiscovery;
+      const first = scanner.scan().pipe(Effect.forkChild);
+      // Second claim must skip while the first probe is in flight.
+      yield* Effect.yieldNow();
+      const second = yield* scanner.scan();
+      expect(probeRuns).toBe(1);
+      // Common-port fallback while the expensive probe is busy.
+      expect(second.every((server) => server.processName === null)).toBe(true);
+
+      releaseProbe?.();
+      yield* first;
       expect(probeRuns).toBe(1);
     }).pipe(Effect.provide(layer), Effect.scoped);
   }),
